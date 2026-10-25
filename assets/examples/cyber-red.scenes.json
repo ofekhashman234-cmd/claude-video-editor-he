@@ -1,0 +1,111 @@
+{
+ "theme": "cinematic",
+ "brand": {
+  "name": ""
+ },
+ "scenes": [
+  {
+   "type": "bigword",
+   "dur": 2.4,
+   "words": [
+    "ערכתי",
+    "את",
+    "הסרטון",
+    "הזה",
+    "בלי",
+    "תוכנה"
+   ],
+   "key": "תוכנה"
+  },
+  {
+   "type": "toolbox",
+   "dur": 3,
+   "title": "ארגז הכלים",
+   "highlight": 3,
+   "items": [
+    {
+     "name": "HyperFrames",
+     "icon": "H",
+     "color": "#3a2a5a"
+    },
+    {
+     "name": "Playwright",
+     "icon": "P",
+     "color": "#1f4a2a"
+    },
+    {
+     "name": "ffmpeg",
+     "icon": "F",
+     "color": "#145a32"
+    },
+    {
+     "name": "Claude Code",
+     "icon": "✳",
+     "color": "#c2562c"
+    },
+    {
+     "name": "Whisper",
+     "icon": "W",
+     "color": "#333"
+    },
+    {
+     "name": "Make",
+     "icon": "M",
+     "color": "#5a2a6a"
+    }
+   ],
+   "caption": {
+    "text": "הכול רץ אצלי במחשב",
+    "key": "במחשב"
+   }
+  },
+  {
+   "type": "terminal",
+   "dur": 3.2,
+   "lines": [
+    "> תערוך לי את הסרטון בתיקייה",
+    "✓ תמלול בעברית",
+    "✓ חיתוך שתיקות",
+    "✓ כתוביות ופתיח",
+    "✓ רינדור: final.mp4"
+   ],
+   "caption": {
+    "text": "פקודה אחת בעברית",
+    "key": "אחת"
+   }
+  },
+  {
+   "type": "timeline",
+   "dur": 2.8,
+   "clips": 6,
+   "cuts": [
+    1,
+    4
+   ],
+   "caption": {
+    "text": "הוא חותך את השתיקות לבד",
+    "key": "לבד"
+   },
+   "stamp": "בלי פרימייר",
+   "stampAt": 1.6
+  },
+  {
+   "type": "sticker",
+   "dur": 2.6,
+   "img": "your-photo.jpg",
+   "label": "זה אני",
+   "caption": {
+    "text": "ואני רק מאשר",
+    "key": "מאשר"
+   }
+  },
+  {
+   "type": "commentcta",
+   "dur": 3.2,
+   "title": "רוצים את השיטה?",
+   "key": "השיטה?",
+   "word": "עורך",
+   "reply": "שלחתי לך בפרטי 📩"
+  }
+ ]
+}

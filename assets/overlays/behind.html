@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="he" dir="rtl"><head><meta charset="utf-8">
+<!--
+  שכבה אחורית: מצוירת בין הקיר לבין האדם (compose.py --behind). הגוף של הדובר מסתיר אותה, כאילו היא באמת בחדר.
+  window.DATA.behind = [
+    {kind:"wall",  text:"נתחיל מהקל לכבד", key:"לכבד", s:0.2, e:4, y:260, size:150, color:"#fff", hi:"#FF6B2C"}  טקסט ענק על הקיר, מילה אחרי מילה
+    {kind:"mag",   text:"BUILD", s:0, e:5, y:120, size:300, sub:"גיליון 07 · 2026"}                              שם מגזין מאחורי הראש
+    {kind:"notes", items:["חסך לי שעתיים ביום", ...], s:0.3, e:5, every:0.25}                                      פתקים שנדבקים על הקיר
+    {kind:"logos", items:["logo1.png", ...], s:0.5, e:4}                                                            לוגואים שעולים מאחורי הראש
+  ]
+-->
+<style>
+@font-face{font-family:Rubik;src:url('../fonts/rubik-hebrew-300-900.woff2') format('woff2');font-weight:300 900;unicode-range:U+0590-05FF,U+200C-2010,U+20AA,U+25CC,U+FB1D-FB4F}
+@font-face{font-family:Rubik;src:url('../fonts/rubik-latin-300-900.woff2') format('woff2');font-weight:300 900}
+@font-face{font-family:Amatic;src:url('../fonts/amatic-sc-hebrew-700.woff2') format('woff2');font-weight:700}
+*{box-sizing:border-box;margin:0;padding:0}
+body{position:relative;contain:paint;width:1080px;height:1920px}
+html,body{background:transparent;overflow:hidden;font-family:Rubik,sans-serif}
+.L{position:absolute;inset:0;opacity:0}
+.wall{position:absolute;left:40px;right:40px;text-align:center;font-weight:900;line-height:1.02;text-shadow:0 10px 40px rgba(0,0,0,.35)}
+.wall span{display:inline-block;margin:0 14px}
+.mag{position:absolute;left:0;right:0;text-align:center;font-family:Georgia,'Times New Roman',serif;letter-spacing:6px;color:#fff;line-height:1}
+.note{position:absolute;width:340px;background:#f6efdc;color:#222;font-family:Amatic,Rubik;font-weight:700;font-size:52px;line-height:1.05;padding:24px 22px;box-shadow:0 10px 24px rgba(0,0,0,.45)}
+.note::before{content:"";position:absolute;top:-16px;left:120px;width:100px;height:34px;background:rgba(255,255,255,.55)}
+.logo{position:absolute;width:220px;height:220px;object-fit:contain;filter:drop-shadow(0 10px 30px rgba(0,0,0,.4))}
+</style></head><body><div id="root"></div>
+<script>
+const D = window.DATA || {}, L = D.behind || [], root = document.getElementById('root');
+const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+const spring = x => x <= 0 ? 0 : x >= 1 ? 1 : 1 - Math.exp(-6 * x) * Math.cos(9 * x);
+const esc = s => String(s ?? '').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const norm = w => w.replace(/[.,!?:;"'״׳()]/g, '');
+const POS = [[60,200,-6],[650,170,5],[40,560,4],[690,600,-5],[360,90,-2],[120,900,3],[700,950,-4]];
+const items = L.map(l => {
+  const el = document.createElement('div'); el.className = 'L'; root.appendChild(el);
+  if (l.kind === 'wall') el.innerHTML = `<div class="wall" style="top:${l.y ?? 260}px;font-size:${l.size || 150}px;color:${l.color || '#fff'}">${esc(l.text).split(' ').map(w => `<span style="${l.key && norm(w) === norm(l.key) ? 'color:' + (l.hi || '#FF6B2C') : ''}">${w}</span>`).join(' ')}</div>`;
+  if (l.kind === 'mag') el.innerHTML = `<div class="mag" style="top:${l.y ?? 120}px;font-size:${l.size || 300}px">${esc(l.text).split('').map(c => `<span style="display:inline-block">${c}</span>`).join('')}</div>` + (l.sub ? `<div style="position:absolute;top:${(l.y ?? 120) - 40}px;right:60px;font-size:30px;font-weight:600;color:#fff">${esc(l.sub)}</div>` : '');
+  if (l.kind === 'notes') el.innerHTML = l.items.map((n, i) => { const [x, y, r] = POS[i % POS.length]; return `<div class="note" data-r="${r}" style="left:${x}px;top:${y}px">${esc(n)}</div>`; }).join('');
+  if (l.kind === 'logos') el.innerHTML = l.items.map((src, i) => `<img class="logo" src="${src}" style="left:${140 + i * (800 / Math.max(1, l.items.length))}px;top:420px">`).join('');
+  return { l, el };
+});
+window.CONFIG = { W: 1080, H: 1920 };
+window.render = function (t) {
+  for (const { l, el } of items) {
+    const on = t >= l.s && t < l.e; el.style.opacity = on ? clamp(Math.min((t - l.s) / 0.12, (l.e - t) / 0.2)) : 0;
+    if (!on) continue; const u = t - l.s;
+    if (l.kind === 'wall') el.querySelectorAll('span').forEach((sp, i) => { const x = (u - i * 0.18) / 0.4; sp.style.opacity = clamp(x * 3); sp.style.transform = `translateY(${(1 - spring(x)) * 80}px) scale(${0.85 + 0.15 * spring(x)})`; });
+    if (l.kind === 'mag') el.querySelectorAll('.mag span').forEach((sp, i) => { const x = (u - i * 0.08) / 0.35; sp.style.opacity = clamp(x * 3); sp.style.transform = `translateY(${(1 - spring(x)) * -120}px)`; });
+    if (l.kind === 'notes') el.querySelectorAll('.note').forEach((n, i) => { const x = (u - i * (l.every || 0.25)) / 0.3; n.style.opacity = clamp(x * 4); n.style.transform = `rotate(${n.dataset.r}deg) scale(${1.25 - 0.25 * spring(x)})`; });
+    if (l.kind === 'logos') el.querySelectorAll('.logo').forEach((g, i) => { const x = (u - i * 0.15) / 0.6; g.style.opacity = clamp(x * 3); g.style.transform = `translateY(${(1 - spring(x)) * 500}px)`; });
+  }
+};
+window.render(0);
+</script></body></html>

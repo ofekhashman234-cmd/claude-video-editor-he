@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="he" dir="rtl"><head><meta charset="utf-8">
+<!--
+  שכבת כתוביות + פתיח קינטי, לפי מה שעובד אצל עדן ביבס ואיילון גרופר:
+  גלולה לבנה, טקסט שחור עבה, 2 עד 4 מילים, מילת מפתח אחת צבועה. הפתיח: כותרת ענק, מילה אחרי מילה, מילת המפתח על בלוק צבע.
+  window.DATA = {
+    words:   [{w, s, e}]            מ-transcribe.py (זמנים אחרי חיתוך!)
+    keywords:["מילה", ...]          מילים שנצבעות (בלי ניקוד ופיסוק)
+    style:   {hi:"#FF6B2C", y:1180, size:56, maxWords:4, pillBg:"#fff", pillFg:"#111"}
+    hook:    {small:"תפסיקו לכתוב פרומפטים", big:"ותתחילו לכתוב לופים", key:"לופים", s:0, e:2.6}
+    hide:    [[a,b], ...]           טווחים בלי כתוביות (למשל כשיש מושן במסך מלא)
+  }
+-->
+<style>
+@font-face{font-family:Rubik;src:url('../fonts/rubik-hebrew-300-900.woff2') format('woff2');font-weight:300 900;unicode-range:U+0590-05FF,U+200C-2010,U+20AA,U+25CC,U+FB1D-FB4F}
+@font-face{font-family:Rubik;src:url('../fonts/rubik-latin-300-900.woff2') format('woff2');font-weight:300 900}
+*{box-sizing:border-box;margin:0;padding:0}
+body{position:relative;contain:paint;width:1080px;height:1920px}
+html,body{width:1080px;height:1920px;background:transparent;overflow:hidden;font-family:Rubik,sans-serif}
+#pill{position:absolute;left:50%;top:0;transform-origin:50% 50%;background:#fff;color:#111;font-weight:800;border-radius:20px;
+  padding:16px 34px 18px;white-space:nowrap;box-shadow:0 10px 28px rgba(0,0,0,.35);opacity:0;direction:rtl;unicode-bidi:isolate}
+#pill .k{color:var(--hi)}
+#hook{position:absolute;left:60px;right:60px;top:600px;text-align:center;opacity:0}
+#hook .small{display:inline-block;background:#111;color:#fff;border-radius:999px;font-size:42px;font-weight:600;padding:14px 36px;margin-bottom:26px}
+#hook .big{font-size:132px;font-weight:900;line-height:1.05;color:#fff;text-shadow:0 8px 30px rgba(0,0,0,.45)}
+#hook .big span{display:inline-block;margin:0 10px}
+#hook .big .key{background:var(--hi);padding:0 24px;border-radius:14px}
+</style></head><body>
+<div id="hook"><div class="small"></div><div class="big"></div></div>
+<div id="pill"></div>
+<script>
+const D = window.DATA || {};
+const S = Object.assign({hi:"#FF6B2C", y:1180, size:56, maxWords:4, pillBg:"#fff", pillFg:"#111"}, D.style || {});
+document.documentElement.style.setProperty('--hi', S.hi);
+const pill = document.getElementById('pill');
+pill.style.fontSize = S.size + 'px'; pill.style.background = S.pillBg; pill.style.color = S.pillFg;
+const norm = w => w.replace(/[֑-ׇ]/g, '').replace(/[.,!?:;"'״׳()\-–]/g, '');
+const KEYS = new Set((D.keywords || []).map(norm));
+const esc = s => s.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+
+// חלוקה לקבוצות: עד maxWords מילים, שבירה על פיסוק או על שקט של 0.35 שנייה
+const W = D.words || [], chunks = [];
+let cur = [];
+W.forEach((w, i) => {
+  cur.push(w);
+  const next = W[i + 1];
+  const endPunct = /[.!?,:]$/.test(w.w);
+  if (!next || cur.length >= S.maxWords || endPunct || (next.s - w.e) > 0.35) { chunks.push(cur); cur = []; }
+});
+chunks.forEach((c, i) => { c.s = c[0].s; c.e = Math.max(c[c.length - 1].e + 0.25, Math.min(c[c.length - 1].e + 0.6, chunks[i + 1] ? chunks[i + 1][0].s : 1e9)); });
+chunks.forEach((c, i) => { if (chunks[i + 1] && c.e > chunks[i + 1][0].s) c.e = chunks[i + 1][0].s; });
+
+// קפיץ קטן: 0 עד 1 עם overshoot
+const spring = x => x <= 0 ? 0 : x >= 1 ? 1 : 1 - Math.exp(-6 * x) * Math.cos(9 * x);
+const hidden = t => (D.hide || []).some(([a, b]) => t >= a && t < b);
+const hook = D.hook, hookEl = document.getElementById('hook');
+if (hook) {
+  hookEl.querySelector('.small').textContent = hook.small || '';
+  hookEl.querySelector('.big').innerHTML = (hook.big || '').split(' ').map(w =>
+    `<span class="${norm(w) === norm(hook.key || '') ? 'key' : ''}">${esc(w)}</span>`).join(' ');
+}
+
+window.CONFIG = {W: 1080, H: 1920};
+window.render = function (t) {
+  // פתיח
+  let inHook = false;
+  if (hook && t >= hook.s && t < hook.e) {
+    inHook = true;
+    hookEl.style.opacity = Math.min(1, (t - hook.s) / 0.12, (hook.e - t) / 0.15);
+    const sm = hookEl.querySelector('.small');
+    sm.style.transform = `scale(${0.85 + 0.15 * spring((t - hook.s) / 0.35)})`;
+    const spans = hookEl.querySelectorAll('.big span'), step = Math.min(0.28, (hook.e - hook.s - 0.6) / Math.max(1, spans.length));
+    spans.forEach((sp, i) => {
+      const x = (t - hook.s - 0.35 - i * step) / 0.3;
+      sp.style.opacity = x <= 0 ? 0 : 1;
+      sp.style.transform = `translateY(${(1 - spring(x)) * 60}px) scale(${0.8 + 0.2 * spring(x)})`;
+    });
+  } else hookEl.style.opacity = 0;
+  // כתובית
+  const c = (!inHook && !hidden(t)) ? chunks.find(c => t >= c.s && t < c.e) : null;
+  if (!c) { pill.style.opacity = 0; return; }
+  pill.innerHTML = c.map(w => `<span class="${KEYS.has(norm(w.w)) ? 'k' : ''}">${esc(w.w)}</span>`).join(' ');
+  const x = (t - c.s) / 0.22;
+  pill.style.opacity = Math.min(1, (t - c.s) / 0.06, (c.e - t) / 0.06);
+  pill.style.top = S.y + 'px';
+  pill.style.transform = `translate(-50%, ${(1 - spring(x)) * 18}px) scale(${0.88 + 0.12 * spring(x)})`;
+};
+window.render(0);
+</script>
+</body></html>
