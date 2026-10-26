@@ -95,3 +95,9 @@
 | מצויר | רקע נייבי עם משבצות, קו טוש לבן רועד סביב הדובר, קרניים וכוכבים זוהרים, מילים בכתב יד | `behind` kind `navygrid` + `--outline marker:a-b` + segment `drawn` |
 | נייר | נייר ממוחזר, הדובר כגזיר עם שוליים לבנים, אותיות כופר בסטופ-מושן, מסקינג טייפ ותווית | `behind` kind `paper` + `--outline torn:a-b` + segment `paper` |
 דוגמה מלאה: `compose.py --video v.mp4 --behind overlays/behind.html --overlay overlays/mixed.html --data mixed.json --outline "marker:1.1-2.5,torn:2.5-3.9" --zooms "0.6-1.1:0.10"`. ה-DATA: `words`, `segments`, `flashes`, `behind` (התיעוד בראש mixed.html ו-behind.html).
+
+## שילוב: "מפוצץ" (5 עולמות + אפקטים)
+שחור-לבן קולנועי עם פסים וחותמת ← פיצוץ צבע (קווי מהירות, גליץ', טקסט על הקיר, רעידות) ← מצויר (נורה, כתב יד) ← נייר (גזירים שנוחתים על המילה, מדבקה) ← ריאליסטי חם (הבזק אור, זום, חץ לתגובות).
+- `compose.py`: `--grade "a-b:bw|cool|warm|punch"`, `--shake "a-b:עוצמה"`, `--glitch "t1,t2"` (רצים על התמונה, לפני הכתוביות)
+- `mixed.html`: `stamps`, `bursts`, `wipes`, `bars`, `leaks`, ובקטעים: `caps`/`bulb` (מצויר), `cuts` (נייר), `arrow` (ריאליסטי). כתוביות מתחלקות לקבוצות של עד 3 מילים.
+- כלל: אפקט חזק על מילה חזקה בלבד (רעידה על "תחכו", לא על כל מילה). מעבר עולם = הבזק + גליץ' + מגב.

@@ -105,6 +105,9 @@ def main():
     ap.add_argument("--behind", help="שכבת HTML שמצוירת מאחורי האדם (טקסט על הקיר, מגזין, פתקים). מפעיל הפרדת אדם")
     ap.add_argument("--behind-data", help="DATA לשכבה האחורית (ברירת מחדל: אותו --data)")
     ap.add_argument("--outline", help='קו סביב האדם, בטווחי זמן: "marker:1.1-2.5,torn:2.5-3.9" (marker = קו טוש לבן שרועד, torn = שוליים לבנים קרועים כמו גזיר עיתון)')
+    ap.add_argument("--grade", help='צבע לכל קטע: "0-0.9:bw,2.1-5.5:cool,5.5-8.8:warm,8.8-12:punch" (bw / cool / warm / punch)')
+    ap.add_argument("--shake", help='רעידת מצלמה: "0.95-1.3:14,6.3-6.5:8" (התחלה-סוף:עוצמה בפיקסלים, עד 20)')
+    ap.add_argument("--glitch", help='גליץ\' של הפרדת צבעים ורעש סביב רגעים: "2.1,5.56,8.88"')
     ap.add_argument("--person", help="שכבת אדם שקופה מוכנה (webm/mov). בלי: נוצרת אוטומטית עם hyperframes remove-background")
     ap.add_argument("--out", default="out/final.mp4"); ap.add_argument("--keep"); ap.add_argument("--zooms")
     ap.add_argument("--preview", action="store_true"); ap.add_argument("--t0", type=float); ap.add_argument("--t1", type=float)
@@ -160,8 +163,23 @@ def main():
         z = zoom_expr(a.zooms, a.fps)
         zp = (f"zoompan=z='{z}':x='iw/2-(iw/zoom/2)':y='ih*{a.focus_y}-(ih/zoom*{a.focus_y})'"
               f":d=1:s=1080x1920:fps={a.fps}")
+    # אפקטים על התמונה המורכבת (צילום + רקעים + אדם), לפני הכתוביות, כדי שהטקסט יישאר חד ויציב
+    post = []
+    GR = {"bw": "hue=s=0,eq=contrast=1.28:brightness=-0.03", "cool": "colorbalance=rs=-0.06:bs=0.12:rm=-0.04:bm=0.08,eq=saturation=1.1",
+          "warm": "colorbalance=rs=0.12:gs=0.04:bs=-0.12:rm=0.08:bm=-0.08,eq=saturation=0.85:contrast=1.06", "punch": "eq=contrast=1.14:saturation=1.3"}
+    for g in (a.grade or "").split(","):
+        if not g.strip(): continue
+        rng, kind = g.split(":"); ga, gb = rng.split("-"); en = f"enable='between(t,{float(ga) - t0:.3f},{float(gb) - t0:.3f})'"
+        post += [f"{f}:{en}" if "=" in f else f for f in GR[kind].split(",")]
+    if a.shake:
+        amp = "+".join(f"{min(20, float(x.split(':')[1]))}*between(t,{float(x.split(':')[0].split('-')[0]) - t0:.3f},{float(x.split(':')[0].split('-')[1]) - t0:.3f})" for x in a.shake.split(",") if x.strip())
+        post += [f"crop=1040:1880:x='20+({amp})*sin(n*2.7)':y='20+({amp})*cos(n*3.1)'", "scale=1080:1920"]
+    if a.glitch:
+        win = "+".join(f"between(t,{float(x) - t0 - 0.06:.3f},{float(x) - t0 + 0.16:.3f})" for x in a.glitch.split(",") if x.strip())
+        post += ["format=gbrp", f"rgbashift=rh=-26:bh=26:gv=8:enable='{win}'", f"noise=alls=40:allf=t:enable='{win}'"]
+    post_s = ("," + ",".join(post)) if post else ""
     if zp and not a.behind: vf += "," + zp   # עם שכבה אחורית הזום רץ אחרי ההרכבה של הרקע והאדם, כדי שהמסכה לא תזוז מהגוף
-    vf += "[b0]"
+    vf += (post_s if not a.behind else "") + "[b0]"
     cmd = [FF, "-v", "error", "-y", "-ss", f"{t0}", "-t", f"{t1 - t0}", "-i", str(base)]
     graph, last, idx = [vf], "b0", 1
     if a.behind:
@@ -186,7 +204,7 @@ def main():
                              f"color=c=white:s=1080x1920:r={a.fps}[w{k}];[w{k}][m{k}]alphamerge[ol{k}];"
                              f"[{last_b}][ol{k}]overlay=x='5*sin(floor(n/3)*2.1)':y='5*cos(floor(n/3)*1.7)':{en}[bo{k}]")
             last_b = f"bo{k}"
-        graph.append(f"[{last_b}][ps]overlay=0:0:format=auto" + (f",{zp}" if zp else "") + "[b2]")
+        graph.append(f"[{last_b}][ps]overlay=0:0:format=auto" + (f",{zp}" if zp else "") + post_s + "[b2]")
         last, idx = "b2", idx + 2
     if a.overlay:
         cmd += ["-f", "image2pipe", "-framerate", str(a.fps), "-c:v", "png", "-i", "-"]
