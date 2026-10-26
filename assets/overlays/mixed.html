@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="he" dir="rtl"><head><meta charset="utf-8">
+<!--
+  שכבה קדמית לסרטון שמשלב סגנונות (ריאליסטי ← מצויר ← נייר), כמו אצל עדן ביבס, איילון גרופר ובני פרבר.
+  עובדת יחד עם behind.html (רקעים paper / navygrid) ועם compose.py --outline (marker / torn).
+  window.DATA = {
+    words: [{w,s,e}],                                   מ-transcribe.py
+    segments: [
+      {style:"real",  s:0,    e:1.14, key:"נשארתם"}      כתוביות גלולה, מילה אחרי מילה, מילת מפתח בכתום
+      {style:"drawn", s:1.14, e:2.54}                    ניצוצות וחצים בטוש זוהר משני צדי הראש
+      {style:"paper", s:2.54, e:3.93, label:"קורה.", at:3.16}   מסקינג טייפ על הכתפיים, תווית מדבקה, גרעין וסטופ-מושן
+    ],
+    flashes: [1.14, 2.54],                              הבזק לבן בכל מעבר סגנון
+    capY: 1430                                          גובה הכתובית (על החולצה, לא על הפנים)
+  }
+-->
+<style>
+@font-face{font-family:Rubik;src:url('../fonts/rubik-hebrew-300-900.woff2') format('woff2');font-weight:300 900;unicode-range:U+0590-05FF,U+200C-2010,U+20AA,U+25CC,U+FB1D-FB4F}
+@font-face{font-family:Rubik;src:url('../fonts/rubik-latin-300-900.woff2') format('woff2');font-weight:300 900}
+@font-face{font-family:Amatic;src:url('../fonts/amatic-sc-hebrew-700.woff2') format('woff2');font-weight:700}
+*{box-sizing:border-box;margin:0;padding:0}
+body{position:relative;contain:paint;width:1080px;height:1920px}
+html,body{background:transparent;overflow:hidden;font-family:Rubik,sans-serif}
+.S{position:absolute;inset:0;opacity:0}
+.pill{position:absolute;left:0;right:0;display:flex;justify-content:center;gap:16px;direction:rtl}
+.pill span{display:inline-block;font-weight:800;font-size:92px;color:#111;background:#fff;padding:10px 30px 18px;border-radius:26px;box-shadow:0 12px 30px rgba(0,0,0,.35)}
+.pill span.k{background:#FF6B2C;color:#fff}
+svg.dw{position:absolute;inset:0;width:1080px;height:1920px;overflow:visible}
+.tape{position:absolute;width:250px;height:70px;background:rgba(240,228,190,.82);box-shadow:0 4px 10px rgba(0,0,0,.18)}
+.tape::before,.tape::after{content:"";position:absolute;top:0;bottom:0;width:10px;background:repeating-linear-gradient(0deg,transparent 0 6px,rgba(0,0,0,.08) 6px 12px)}
+.tape::before{left:0}.tape::after{right:0}
+.label{position:absolute;left:0;right:0;display:flex;justify-content:center}
+.label b{display:inline-block;font-weight:900;font-size:120px;color:#fff;background:#111;padding:6px 40px 18px;letter-spacing:4px;box-shadow:0 10px 0 #C2261B}
+.grain{position:absolute;inset:0;background:url(../fx/grain.png);mix-blend-mode:multiply;opacity:.35}
+.vig{position:absolute;inset:0;background:radial-gradient(ellipse at 50% 45%,transparent 55%,rgba(40,25,10,.45))}
+#flash{position:absolute;inset:0;background:#fff;opacity:0}
+</style></head><body><div id="root"></div><div id="flash"></div>
+<script>
+const D = window.DATA || {}, W = D.words || [], SEG = D.segments || [], root = document.getElementById('root');
+const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+const spring = x => x <= 0 ? 0 : x >= 1 ? 1 : 1 - Math.exp(-6 * x) * Math.cos(9 * x);
+const esc = s => String(s ?? '').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const norm = w => w.replace(/[.,!?:;"'״׳()]/g, '');
+const capY = D.capY ?? 1430;
+const star = (x, y, r) => `M${x} ${y - r} L${x + r * .25} ${y - r * .25} L${x + r} ${y} L${x + r * .25} ${y + r * .25} L${x} ${y + r} L${x - r * .25} ${y + r * .25} L${x - r} ${y} L${x - r * .25} ${y - r * .25} Z`;
+const segs = SEG.map(g => {
+  const el = document.createElement('div'); el.className = 'S'; root.appendChild(el);
+  if (g.style === 'real') {
+    const ws = W.filter(w => w.s >= g.s - 0.01 && w.s < g.e);
+    el.innerHTML = `<div class="pill" style="top:${capY}px">${ws.map(w => `<span class="${g.key && norm(w.w) === norm(g.key) ? 'k' : ''}" data-s="${w.s}">${esc(w.w)}</span>`).join('')}</div>`;
+  }
+  if (g.style === 'drawn') {
+    const P = [[star(170, 430, 46), '#FFC94A'], [star(910, 380, 38), '#fff'], [star(960, 560, 22), '#FFC94A'], [star(120, 600, 24), '#fff'],
+               ['M60 1180 q60 -120 150 -150', '#fff'], ['M190 1050 l30 -10 m-30 10 l10 28', '#fff'],
+               ['M1020 1180 q-60 -120 -150 -150', '#FFC94A'], ['M890 1050 l-30 -10 m30 10 l-10 28', '#FFC94A']];
+    el.innerHTML = `<svg class="dw">${P.map(([d, c]) => `<path d="${d}" stroke="${c}" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round" style="filter:drop-shadow(0 0 10px ${c})"/>`).join('')}</svg>`;
+    el.querySelectorAll('path').forEach(p => { const L0 = p.getTotalLength(); p.dataset.len = L0; p.style.strokeDasharray = L0; p.style.strokeDashoffset = L0; });
+  }
+  if (g.style === 'paper') {
+    el.innerHTML = `<div class="grain"></div><div class="vig"></div>
+      <div class="tape" style="left:-30px;top:1080px;transform:rotate(-38deg)"></div><div class="tape" style="right:-30px;top:1060px;transform:rotate(34deg)"></div>
+      ${g.label ? `<div class="label" style="top:${capY}px"><b>${esc(g.label)}</b></div>` : ''}`;
+  }
+  return { g, el };
+});
+window.CONFIG = { W: 1080, H: 1920 };
+window.render = function (t) {
+  for (const { g, el } of segs) {
+    const on = t >= g.s && t < g.e; el.style.opacity = on ? 1 : 0;
+    if (!on) continue; const u = t - g.s;
+    if (g.style === 'real') el.querySelectorAll('.pill span').forEach(sp => {
+      const x = (t - +sp.dataset.s) / 0.22; sp.style.opacity = clamp(x * 4); sp.style.transform = `scale(${0.6 + 0.4 * spring(x)})`; });
+    if (g.style === 'drawn') {
+      el.querySelectorAll('path').forEach((p, i) => { p.style.strokeDashoffset = p.dataset.len * (1 - clamp((u - 0.15 - i * 0.07) / 0.3)); });
+      const f = Math.floor(u * 8); el.querySelector('svg').style.transform = `translate(${Math.sin(f * 2.3) * 3}px,${Math.cos(f * 1.7) * 3}px)`;   // רעד של ציור יד
+    }
+    if (g.style === 'paper') {
+      const f = Math.floor(u * 8);   // סטופ-מושן: 8 פריימים בשנייה
+      el.querySelectorAll('.tape').forEach((tp, i) => { const shown = f >= 1 + i; tp.style.opacity = shown ? 1 : 0; });
+      const lb = el.querySelector('.label b');
+      if (lb) { const x = (t - (g.at ?? g.s)) / 0.25; lb.style.opacity = x > 0 ? 1 : 0; lb.style.transform = `rotate(${-3 + Math.sin(f * 1.3)}deg) scale(${x < 1 ? 1.35 - 0.35 * spring(x) : 1})`; }
+      el.querySelector('.grain').style.backgroundPosition = `${(f * 137) % 400}px ${(f * 59) % 400}px`;
+    }
+  }
+  let fl = 0; for (const s of D.flashes || []) if (t >= s) fl = Math.max(fl, 1 - (t - s) / 0.14);
+  document.getElementById('flash').style.opacity = clamp(fl) * 0.9;
+};
+window.render(0);
+</script></body></html>

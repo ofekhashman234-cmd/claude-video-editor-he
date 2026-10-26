@@ -7,6 +7,9 @@
     {kind:"mag",   text:"BUILD", s:0, e:5, y:120, size:300, sub:"גיליון 07 · 2026"}                              שם מגזין מאחורי הראש
     {kind:"notes", items:["חסך לי שעתיים ביום", ...], s:0.3, e:5, every:0.25}                                      פתקים שנדבקים על הקיר
     {kind:"logos", items:["logo1.png", ...], s:0.5, e:4}                                                            לוגואים שעולים מאחורי הראש
+    {kind:"paper", s:2.5, e:4, cut:"משהו ענק", y:110}                     רקע נייר ממוחזר + אותיות גזורות (פתק כופר) שנוחתות בסטופ-מושן, אות כל 1/12 שנייה
+    {kind:"navygrid", s:1.1, e:2.5, text:"כנראה שהבנתם", key:"שהבנתם", y:120}   לוח נייבי עם משבצות, מילים בכתב יד זוהר וקרניים מצוירות מאחורי הראש
+  רקעים אטומים (paper, navygrid) מחליפים את החדר. משלבים עם --outline (torn לנייר, marker לציור)
   ]
 -->
 <style>
@@ -22,6 +25,14 @@ html,body{background:transparent;overflow:hidden;font-family:Rubik,sans-serif}
 .mag{position:absolute;left:0;right:0;text-align:center;font-family:Georgia,'Times New Roman',serif;letter-spacing:6px;color:#fff;line-height:1}
 .note{position:absolute;width:340px;background:#f6efdc;color:#222;font-family:Amatic,Rubik;font-weight:700;font-size:52px;line-height:1.05;padding:24px 22px;box-shadow:0 10px 24px rgba(0,0,0,.45)}
 .note::before{content:"";position:absolute;top:-16px;left:120px;width:100px;height:34px;background:rgba(255,255,255,.55)}
+.paper{position:absolute;inset:0;background:#E9DFC8;background-image:url(../fx/grain.png),repeating-linear-gradient(97deg,rgba(120,95,60,.05) 0 2px,transparent 2px 9px),radial-gradient(ellipse at 30% 20%,#F3EBD8,#DDD0B2 80%)}
+.paper .col{position:absolute;width:150px;display:flex;flex-direction:column;gap:13px}
+.paper .col i{display:block;height:9px;background:rgba(60,50,40,.22);border-radius:2px}
+.cut{position:absolute;left:0;right:0;display:flex;justify-content:center;gap:10px;direction:rtl}
+.cut b{display:inline-block;font-weight:900;line-height:1;padding:10px 14px 16px;box-shadow:0 8px 14px rgba(0,0,0,.28)}
+.grid{position:absolute;inset:0;background:#0B1636;background-image:linear-gradient(rgba(140,170,255,.10) 2px,transparent 2px),linear-gradient(90deg,rgba(140,170,255,.10) 2px,transparent 2px);background-size:90px 90px}
+.grid .hw{position:absolute;left:30px;right:30px;text-align:center;font-family:Amatic,Rubik;font-weight:700;color:#fff;line-height:1;text-shadow:0 0 18px rgba(255,255,255,.55),0 0 50px rgba(106,75,255,.8)}
+.grid svg{position:absolute;inset:0;width:1080px;height:1920px;overflow:visible}
 .logo{position:absolute;width:220px;height:220px;object-fit:contain;filter:drop-shadow(0 10px 30px rgba(0,0,0,.4))}
 </style></head><body><div id="root"></div>
 <script>
@@ -37,16 +48,42 @@ const items = L.map(l => {
   if (l.kind === 'mag') el.innerHTML = `<div class="mag" style="top:${l.y ?? 120}px;font-size:${l.size || 300}px">${esc(l.text).split('').map(c => `<span style="display:inline-block">${c}</span>`).join('')}</div>` + (l.sub ? `<div style="position:absolute;top:${(l.y ?? 120) - 40}px;right:60px;font-size:30px;font-weight:600;color:#fff">${esc(l.sub)}</div>` : '');
   if (l.kind === 'notes') el.innerHTML = l.items.map((n, i) => { const [x, y, r] = POS[i % POS.length]; return `<div class="note" data-r="${r}" style="left:${x}px;top:${y}px">${esc(n)}</div>`; }).join('');
   if (l.kind === 'logos') el.innerHTML = l.items.map((src, i) => `<img class="logo" src="${src}" style="left:${140 + i * (800 / Math.max(1, l.items.length))}px;top:420px">`).join('');
+  if (l.kind === 'paper') {
+    const col = (x, y, n) => `<div class="col" style="left:${x}px;top:${y}px">${Array.from({length: n}, (_, k) => `<i style="width:${70 + (k * 37) % 30}%"></i>`).join('')}</div>`;
+    const PAL = [['#fff','#111'],['#111','#fff'],['#FF6B2C','#fff'],['#FFC94A','#111'],['#f4f1ea','#C2261B'],['#1F6FE0','#fff']];
+    const ch = [...(l.cut || '')];
+    el.innerHTML = `<div class="paper">${col(40, 470, 22)}${col(890, 520, 20)}
+      <svg width="1080" height="1920" style="position:absolute;inset:0"><path d="M60 330 q80 -60 160 0 t160 0" stroke="#5b5146" stroke-width="5" fill="none" opacity=".45" stroke-linecap="round"/>
+      <path d="M880 300 l60 -40 m-60 40 l70 10" stroke="#5b5146" stroke-width="5" fill="none" opacity=".45" stroke-linecap="round"/></svg>
+      <div class="cut" style="top:${l.y ?? 110}px">${ch.map((c, i) => c === ' ' ? '<span style="width:40px"></span>' : `<b style="background:${PAL[i % 6][0]};color:${PAL[i % 6][1]};font-size:${l.size || 150}px;font-family:${i % 2 ? 'Georgia,serif' : 'Rubik'}">${esc(c)}</b>`).join('')}</div></div>`;
+  }
+  if (l.kind === 'navygrid') {
+    const ray = (d, k) => `<path d="${d}" stroke="${k % 2 ? '#FFC94A' : '#fff'}" stroke-width="9" fill="none" stroke-linecap="round" style="filter:drop-shadow(0 0 10px ${k % 2 ? '#FFC94A' : '#9db4ff'})"/>`;
+    el.innerHTML = `<div class="grid"><svg>${[
+      'M540 560 L540 380', 'M330 620 L190 470', 'M750 620 L890 470', 'M250 820 L80 780', 'M830 820 L1000 780',
+      'M150 980 q40 -60 80 0 t80 0', 'M850 1000 q40 -60 80 0 t80 0'].map(ray).join('')}</svg>
+      <div class="hw" style="top:${l.y ?? 120}px;font-size:${l.size || 190}px">${esc(l.text).split(' ').map(w => `<span style="display:inline-block;margin:0 16px;${l.key && norm(w) === norm(l.key) ? 'color:#FFC94A' : ''}">${w}</span>`).join(' ')}</div></div>`;
+    el.querySelectorAll('path').forEach(p => { const L0 = p.getTotalLength(); p.dataset.len = L0; p.style.strokeDasharray = L0; p.style.strokeDashoffset = L0; });
+  }
   return { l, el };
 });
 window.CONFIG = { W: 1080, H: 1920 };
 window.render = function (t) {
   for (const { l, el } of items) {
-    const on = t >= l.s && t < l.e; el.style.opacity = on ? clamp(Math.min((t - l.s) / 0.12, (l.e - t) / 0.2)) : 0;
+    const on = t >= l.s && t < l.e, hard = l.kind === 'paper' || l.kind === 'navygrid';   // רקע אטום מתחלף בחיתוך חד
+    el.style.opacity = on ? (hard ? 1 : clamp(Math.min((t - l.s) / 0.12, (l.e - t) / 0.2))) : 0;
     if (!on) continue; const u = t - l.s;
     if (l.kind === 'wall') el.querySelectorAll('span').forEach((sp, i) => { const x = (u - i * 0.18) / 0.4; sp.style.opacity = clamp(x * 3); sp.style.transform = `translateY(${(1 - spring(x)) * 80}px) scale(${0.85 + 0.15 * spring(x)})`; });
     if (l.kind === 'mag') el.querySelectorAll('.mag span').forEach((sp, i) => { const x = (u - i * 0.08) / 0.35; sp.style.opacity = clamp(x * 3); sp.style.transform = `translateY(${(1 - spring(x)) * -120}px)`; });
     if (l.kind === 'notes') el.querySelectorAll('.note').forEach((n, i) => { const x = (u - i * (l.every || 0.25)) / 0.3; n.style.opacity = clamp(x * 4); n.style.transform = `rotate(${n.dataset.r}deg) scale(${1.25 - 0.25 * spring(x)})`; });
+    if (l.kind === 'paper') { const f = Math.floor(u * 12); el.querySelectorAll('.cut b').forEach((b, i) => {   // סטופ-מושן: כל אות נוחתת בפריים אחר ונשארת קצת עקומה
+      const on2 = f >= 1 + i; b.style.opacity = on2 ? 1 : 0; const r = ((i * 53 + (f - 1 - i < 1 ? 7 : 0)) % 17) - 8;
+      b.style.transform = `rotate(${r}deg) translateY(${(i * 37 % 23) - 11}px) scale(${f - 1 - i < 1 ? 1.3 : 1})`; }); }
+    if (l.kind === 'navygrid') {
+      el.querySelectorAll('path').forEach((p, i) => { p.style.strokeDashoffset = p.dataset.len * (1 - clamp((u - 0.1 - i * 0.06) / 0.35)); });
+      el.querySelectorAll('.hw span').forEach((sp, i) => { const x = (u - i * 0.25) / 0.35; sp.style.opacity = clamp(x * 3); sp.style.transform = `translateY(${(1 - spring(x)) * 60}px) rotate(${(1 - spring(x)) * -8}deg)`; });
+      el.querySelector('.hw').style.transform = `translate(${Math.sin(Math.floor(u * 8) * 2.3) * 3}px,${Math.cos(Math.floor(u * 8) * 1.9) * 3}px)`;
+    }
     if (l.kind === 'logos') el.querySelectorAll('.logo').forEach((g, i) => { const x = (u - i * 0.15) / 0.6; g.style.opacity = clamp(x * 3); g.style.transform = `translateY(${(1 - spring(x)) * 500}px)`; });
   }
 };

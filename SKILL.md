@@ -99,7 +99,8 @@ description: >
 | `assets/transcribe.py` | תמלול עברית עם זמן לכל מילה (ivrit-ai) |
 | `assets/compose.py` | הרכבה: חיתוך, זום, שכבת HTML שקופה, סאונד |
 | `assets/overlays/captions.html` | כתוביות בגלולה + פתיח קינטי |
-| `assets/overlays/behind.html` | שכבה מאחורי האדם: טקסט על הקיר, מגזין, פתקים, לוגואים |
+| `assets/overlays/behind.html` | שכבה מאחורי האדם: טקסט על הקיר, מגזין, פתקים, לוגואים, רקע נייר ורקע משבצות מצויר |
+| `assets/overlays/mixed.html` | שילוב סגנונות בסרטון אחד: ריאליסטי ← מצויר ← נייר, עם הבזק בכל מעבר (יחד עם `--outline`) |
 | `assets/scenes/reel.html` | מנוע סצנות: סרטון שלם מ-scenes.json. 19 סוגי סצנות, 4 ערכות נושא (brand, cinematic, doc, light) ו-3 סגנונות כתוביות |
 | `references/scene-library.md` | כל סוגי הסצנות, השדות, האורכים והמבנה המומלץ |
 | `assets/examples/*.scenes.json` | שלושה סרטונים לדוגמה: סייבר אדום, דוקו, מותג |

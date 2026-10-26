@@ -12,7 +12,7 @@
 חוזה דף ה-overlay: window.CONFIG = {W, H} (ברירת מחדל 1080x1920), window.render(t) מצייר את מצב השכבה בזמן t,
 והרקע שקוף. הנתונים מ---data נטענים לפני הדף כ-window.DATA. דוגמה: assets/overlays/captions.html.
 """
-import argparse, json, os, shutil, subprocess, sys, tempfile
+import re, argparse, json, os, shutil, subprocess, sys, tempfile
 from pathlib import Path
 
 for _s in (sys.stdout, sys.stderr):
@@ -66,6 +66,9 @@ def render_html(html, data, t0, n, fps, sink):
         pg.add_init_script("window.DATA = " + json.dumps(data, ensure_ascii=False) + ";")
         errs = []; pg.on("pageerror", lambda e: errs.append(str(e)))
         pg.goto(Path(html).resolve().as_uri()); pg.evaluate("document.fonts.ready"); pg.wait_for_timeout(200)
+        # פיקסל שקוף אחד בפינה: בלעדיו כרום שומר פריים אטום (רקע נייר / משבצות) כ-RGB בלי שקיפות,
+        # הפורמט מתחלף באמצע, ffmpeg בונה מחדש את הגרף ומאבד פריימים
+        pg.add_style_tag(content="body{clip-path:polygon(0 0,100% 0,100% calc(100% - 1px),calc(100% - 1px) calc(100% - 1px),calc(100% - 1px) 100%,0 100%)}")
         for i in range(n):
             pg.evaluate(f"window.render({t0 + i / fps:.4f})")
             sink(pg.screenshot(omit_background=True, type="png"), i)
@@ -101,6 +104,7 @@ def main():
     ap.add_argument("--overlay"); ap.add_argument("--data")
     ap.add_argument("--behind", help="שכבת HTML שמצוירת מאחורי האדם (טקסט על הקיר, מגזין, פתקים). מפעיל הפרדת אדם")
     ap.add_argument("--behind-data", help="DATA לשכבה האחורית (ברירת מחדל: אותו --data)")
+    ap.add_argument("--outline", help='קו סביב האדם, בטווחי זמן: "marker:1.1-2.5,torn:2.5-3.9" (marker = קו טוש לבן שרועד, torn = שוליים לבנים קרועים כמו גזיר עיתון)')
     ap.add_argument("--person", help="שכבת אדם שקופה מוכנה (webm/mov). בלי: נוצרת אוטומטית עם hyperframes remove-background")
     ap.add_argument("--out", default="out/final.mp4"); ap.add_argument("--keep"); ap.add_argument("--zooms")
     ap.add_argument("--preview", action="store_true"); ap.add_argument("--t0", type=float); ap.add_argument("--t1", type=float)
@@ -136,7 +140,6 @@ def main():
     bdata = json.loads(Path(a.behind_data).read_text(encoding="utf-8")) if a.behind_data else data
     person = None
     if a.behind:
-        if a.zooms: print("אזהרה: זום לא נתמך יחד עם שכבה אחורית, הזום בוטל"); a.zooms = None
         if a.person:
             person = Path(a.person).resolve()
         else:
@@ -152,10 +155,12 @@ def main():
         render_html(a.behind, bdata, t0, n, a.fps, lambda png, i: (bdir / f"{i:05d}.png").write_bytes(png))
 
     vf = f"[0:v]fps={a.fps},scale={1080}:{1920}:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1"
+    zp = ""
     if a.zooms:
         z = zoom_expr(a.zooms, a.fps)
-        vf += (f",zoompan=z='{z}':x='iw/2-(iw/zoom/2)':y='ih*{a.focus_y}-(ih/zoom*{a.focus_y})'"
-               f":d=1:s=1080x1920:fps={a.fps}")
+        zp = (f"zoompan=z='{z}':x='iw/2-(iw/zoom/2)':y='ih*{a.focus_y}-(ih/zoom*{a.focus_y})'"
+              f":d=1:s=1080x1920:fps={a.fps}")
+    if zp and not a.behind: vf += "," + zp   # עם שכבה אחורית הזום רץ אחרי ההרכבה של הרקע והאדם, כדי שהמסכה לא תזוז מהגוף
     vf += "[b0]"
     cmd = [FF, "-v", "error", "-y", "-ss", f"{t0}", "-t", f"{t1 - t0}", "-i", str(base)]
     graph, last, idx = [vf], "b0", 1
@@ -163,7 +168,25 @@ def main():
         cmd += ["-framerate", str(a.fps), "-i", str(tmp / "behind" / "%05d.png")]
         cmd += ["-c:v", "libvpx-vp9", "-i", str(person)]
         graph.append(f"[{idx}:v]format=rgba[bh];[{last}][bh]overlay=0:0:format=auto[b1]")
-        graph.append(f"[{idx + 1}:v]fps={a.fps},scale=1080:1920,format=rgba[ps];[b1][ps]overlay=0:0:format=auto[b2]")
+        last_b = "b1"
+        segs = [x.split(":") for x in (a.outline or "").split(",") if x.strip()]
+        n_out = len(segs)
+        graph.append(f"[{idx + 1}:v]fps={a.fps},scale=1080:1920,format=rgba,split={n_out + 1}[ps]" + "".join(f"[po{k}]" for k in range(n_out)))
+        for k, (kind, rng) in enumerate(segs):
+            sa, sb = rng.split("-")
+            en = f"enable='between(t,{float(sa) - t0:.3f},{float(sb) - t0:.3f})'"
+            # מסכה מוגדלת של האדם ברבע רזולוציה (מהיר), ואז חזרה לגודל מלא וסף חד
+            grow = ",".join(["dilation"] * (6 if kind == "torn" else 4))
+            base_m = f"[po{k}]alphaextract,scale=270:480,{grow}"
+            if kind == "torn":
+                graph.append(f"{base_m},scale=1080:1920,noise=alls=60:allf=t,lut=y='if(gt(val\\,110)\\,255\\,0)',format=gray[m{k}];"
+                             f"color=c=0xFFFDF6:s=1080x1920:r={a.fps}[w{k}];[w{k}][m{k}]alphamerge[ol{k}];[{last_b}][ol{k}]overlay=0:0:{en}[bo{k}]")
+            else:   # marker: טבעת לבנה (הפרש בין שתי הגדלות), רועדת כל 3 פריימים
+                graph.append(f"{base_m},split[mb{k}][mx{k}];[mx{k}]erosion,erosion[ms{k}];[mb{k}][ms{k}]blend=all_mode=difference,scale=1080:1920,lut=y='if(gt(val\\,60)\\,255\\,0)',format=gray[m{k}];"
+                             f"color=c=white:s=1080x1920:r={a.fps}[w{k}];[w{k}][m{k}]alphamerge[ol{k}];"
+                             f"[{last_b}][ol{k}]overlay=x='5*sin(floor(n/3)*2.1)':y='5*cos(floor(n/3)*1.7)':{en}[bo{k}]")
+            last_b = f"bo{k}"
+        graph.append(f"[{last_b}][ps]overlay=0:0:format=auto" + (f",{zp}" if zp else "") + "[b2]")
         last, idx = "b2", idx + 2
     if a.overlay:
         cmd += ["-f", "image2pipe", "-framerate", str(a.fps), "-c:v", "png", "-i", "-"]
@@ -187,6 +210,10 @@ def main():
         proc.stdin.close(); proc.wait()
         if proc.returncode: sys.exit("ffmpeg failed")
     shutil.rmtree(tmp, ignore_errors=True)
+    # בדיקה עצמית: כמה פריימים יצאו בפועל (חור בציר = שכבות לא מסונכרנות)
+    st = subprocess.run([FF, "-i", str(out), "-map", "0:v", "-c", "copy", "-f", "null", "-"], capture_output=True, text=True).stderr
+    got = int(re.findall(r"frame=\s*(\d+)", st)[-1]) if re.findall(r"frame=\s*(\d+)", st) else -1
+    if got < n - 2: print(f"אזהרה: יצאו {got} פריימים מתוך {n}. יש חור בסרטון, לא להראות לפני שמתקנים")
     print(f"done: {out}  ({t1 - t0:.1f}s, {W}x{H}{', preview' if a.preview else ''})")
 
 
