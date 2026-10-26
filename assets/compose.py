@@ -62,7 +62,7 @@ def render_html(html, data, t0, n, fps, sink):
     """מרנדר דף עם window.render(t) לפריימים שקופים. sink(png_bytes, i)"""
     from playwright.sync_api import sync_playwright
     with sync_playwright() as p:
-        b = p.chromium.launch(); pg = b.new_page(viewport={"width": 1080, "height": 1920})
+        b = p.chromium.launch(args=["--disable-gpu", "--disable-renderer-backgrounding", "--disable-background-timer-throttling", "--disable-backgrounding-occluded-windows", "--force-color-profile=srgb"]); pg = b.new_page(viewport={"width": 1080, "height": 1920})
         pg.add_init_script("window.DATA = " + json.dumps(data, ensure_ascii=False) + ";")
         errs = []; pg.on("pageerror", lambda e: errs.append(str(e)))
         pg.goto(Path(html).resolve().as_uri()); pg.evaluate("document.fonts.ready"); pg.wait_for_timeout(200)
@@ -85,7 +85,15 @@ def zoom_expr(zooms, fps):
     return "1+" + "+".join(terms) if terms else "1"
 
 
+def keep_awake():
+    """במק, מסך שנרדם עוצר את הרינדור של הדפדפן. caffeinate מעיר אותו ומחזיק ער עד שהתהליך מסתיים"""
+    if sys.platform == "darwin" and shutil.which("caffeinate"):
+        try: subprocess.Popen(["caffeinate", "-dimsu", "-w", str(os.getpid())], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except Exception: pass
+
+
 def main():
+    keep_awake()
     ap = argparse.ArgumentParser()
     ap.add_argument("--video", help="צילום בסיס. בלי: סרטון מושן בלבד על רקע --bg באורך --duration")
     ap.add_argument("--duration", type=float); ap.add_argument("--bg", default="#110E2B")

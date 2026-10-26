@@ -14,7 +14,7 @@
 
 יוצא: out/<style>.png לכל סגנון, out/board.html (לוח השוואה), out/board.jpg (גיליון אחד).
 """
-import argparse, html, json, os, shutil, subprocess, sys
+import argparse, html, json, os, re, shutil, subprocess, sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -262,7 +262,7 @@ def scenes_board(a):
     from playwright.sync_api import sync_playwright
     cards = []
     with sync_playwright() as p:
-        b = p.chromium.launch()
+        b = p.chromium.launch(args=["--disable-gpu", "--disable-renderer-backgrounding", "--disable-background-timer-throttling", "--disable-backgrounding-occluded-windows", "--force-color-profile=srgb"])
         for i, f in enumerate(files):
             data = json.loads(f.read_text(encoding="utf-8"))
             # תמונות יחסיות נפתרות מול תיקיית ה-json
@@ -273,7 +273,7 @@ def scenes_board(a):
                     if isinstance(v, list): sc[k] = [x if x.startswith(("file:", "http")) else (f.parent / x).resolve().as_uri() for x in v]
             pg = b.new_page(viewport={"width": W, "height": H})
             pg.add_init_script("window.DATA = " + json.dumps(data, ensure_ascii=False) + ";")
-            pg.goto(reel.as_uri()); pg.evaluate("document.fonts.ready"); pg.wait_for_timeout(200)
+            pg.goto(reel.as_uri()); pg.wait_for_timeout(300)
             dur = pg.evaluate("window.CONFIG.DUR"); secs = min(a.secs if a.secs != 3.0 else 4.0, dur)
             name = f"combo{i + 1}"
             ff = subprocess.Popen([ffmpeg_exe(), "-v", "error", "-y", "-f", "image2pipe", "-framerate", "24", "-c:v", "png", "-i", "-",
@@ -299,15 +299,26 @@ figcaption{{padding:14px 16px 18px;display:grid;gap:6px}} figcaption b{{font-siz
 {''.join(f'<figure><div class="n">{i + 1}</div><video src="{n}.mp4" poster="{n}.png" autoplay loop muted playsinline></video><figcaption><b>{esc(l)}</b><span>{esc(d)}</span></figcaption></figure>' for i, (n, l, d) in enumerate(cards))}
 </div></body></html>"""
         (out / "board.html").write_text(page_html, encoding="utf-8")
+        # הגיליון נבנה מתמונות סטטיות (לא מטעינים עשרות סרטונים בבת אחת)
+        still = re.sub(r'<video src="([^"]+)\.mp4" poster="([^"]+)"[^>]*></video>', r'<img src="\2" alt="">', page_html)
+        (out / "_still.html").write_text(still, encoding="utf-8")
         pg = b.new_page(viewport={"width": 1400, "height": 900})
-        pg.goto((out / "board.html").as_uri()); pg.evaluate("document.fonts.ready")
-        pg.evaluate("document.querySelectorAll('video').forEach(v => { v.removeAttribute('src'); v.load(); })"); pg.wait_for_timeout(300)
-        pg.screenshot(path=str(out / "board.jpg"), full_page=True, type="jpeg", quality=80)
+        pg.goto((out / "_still.html").as_uri(), wait_until="domcontentloaded"); pg.evaluate("document.fonts.ready"); pg.wait_for_timeout(400)
+        pg.screenshot(path=str(out / "board.jpg"), full_page=True, type="jpeg", quality=80, timeout=90000)
+        (out / "_still.html").unlink()
         b.close()
     print("board:", out / "board.html"); print("sheet:", out / "board.jpg")
 
 
+def keep_awake():
+    """במק, מסך שנרדם עוצר את הרינדור של הדפדפן. caffeinate מעיר אותו ומחזיק ער עד שהתהליך מסתיים"""
+    if sys.platform == "darwin" and shutil.which("caffeinate"):
+        try: subprocess.Popen(["caffeinate", "-dimsu", "-w", str(os.getpid())], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except Exception: pass
+
+
 def main():
+    keep_awake()
     ap = argparse.ArgumentParser()
     ap.add_argument("--video"); ap.add_argument("--frame"); ap.add_argument("--at", type=float)
     ap.add_argument("--screen", help="צילום מסך לסגנון screen")
@@ -345,7 +356,7 @@ def main():
             print("הפרדת אדם לא עבדה (HyperFrames?):", e)
     from playwright.sync_api import sync_playwright
     with sync_playwright() as p:
-        b = p.chromium.launch()
+        b = p.chromium.launch(args=["--disable-gpu", "--disable-renderer-backgrounding", "--disable-background-timer-throttling", "--disable-backgrounding-occluded-windows", "--force-color-profile=srgb"])
         pg = b.new_page(viewport={"width": W, "height": H})
         for s in styles:
             f = out / f"_{s}.html"; f.write_text(style_html(s, a), encoding="utf-8")

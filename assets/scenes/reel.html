@@ -24,7 +24,7 @@ html,body{overflow:hidden;font-family:Rubik,sans-serif;color:#fff;background:tra
 .pill{position:absolute;left:50%;top:1500px;transform:translateX(-50%);background:#fff;color:#111;font-weight:800;font-size:56px;padding:16px 36px 18px;border-radius:20px;white-space:nowrap;box-shadow:0 10px 28px rgba(0,0,0,.35)}
 .k{color:var(--ac)}
 .brand{position:absolute;top:96px;right:84px;font-weight:700;font-size:34px;color:#D9D4F5;opacity:.85}
-.small{position:absolute;top:560px;left:50%;background:#000;border:2px solid #2c2850;font-weight:600;font-size:42px;padding:14px 34px;border-radius:999px;white-space:nowrap}
+.small{position:absolute;top:560px;left:50%;background:#000;color:#fff;border:2px solid #2c2850;font-weight:600;font-size:42px;padding:14px 34px;border-radius:999px;white-space:nowrap}
 .big{position:absolute;left:60px;right:60px;text-align:center;font-weight:900;line-height:1.12}
 .big span,.w{display:inline-block;margin:0 10px}
 .blk{background:var(--ac);padding:0 24px;border-radius:16px}
@@ -96,6 +96,9 @@ html,body{overflow:hidden;font-family:Rubik,sans-serif;color:#fff;background:tra
 </style></head><body>
 <div class="bgL" id="bgL"><div class="waves"></div><div class="glowA"></div><div class="glowB"></div></div>
 <div id="stage"></div>
+<div id="fx-grain" style="position:absolute;inset:-40px;pointer-events:none;opacity:0;background-image:url(../fx/grain.png);background-size:256px 256px"></div>
+<div id="fx-vig" style="position:absolute;inset:0;pointer-events:none;opacity:0;background:radial-gradient(ellipse 75% 60% at 50% 45%,transparent 55%,rgba(0,0,0,.55))"></div>
+<div id="fx-flash" style="position:absolute;inset:0;pointer-events:none;background:#fff;opacity:0"></div>
 <div class="brand" id="brand"></div>
 <script>
 const D = window.DATA || {}, B = Object.assign({bg:"#110E2B", accent:"#FF6B2C", line:"#8C7CFF", name:"", colors:["#FF6B2C","#6A4BFF","#1F6FE0","#0E8A47"]}, D.brand || {});
@@ -272,12 +275,21 @@ for (const s of D.scenes || []) {
   SC.push({ s, el, draw, a: T, b: T + s.dur }); T += s.dur;
 }
 window.CONFIG = { W: 1080, H: 1920, DUR: T };
+// עריכה "ברמה גבוהה": מעברי פאנץ', הבזק, רעידה בחותמת, גרעין ווינייט
+const FX = Object.assign({ transition: (TH && TH.fx === 'redfloor') || D.theme === 'doc' ? 'punch' : 'soft', grain: D.theme === 'cinematic' || D.theme === 'doc', vignette: D.theme === 'cinematic' || D.theme === 'doc' }, D.fx || {});
+if (FX.grain) document.getElementById('fx-grain').style.opacity = .07;
+if (FX.vignette) document.getElementById('fx-vig').style.opacity = 1;
 window.render = function (t) {
+  document.getElementById('fx-flash').style.opacity = 0;
+  const g = document.getElementById('fx-grain'); if (FX.grain) g.style.transform = `translate(${(Math.floor(t * 24) * 37) % 40 - 20}px, ${(Math.floor(t * 24) * 53) % 40 - 20}px)`;
   for (const c of SC) {
     const on = t >= c.a - 0.001 && t < c.b;
-    c.el.style.opacity = on ? clamp(Math.min((t - c.a) / 0.15, (c.b - t) / 0.15)) : 0;
+    c.el.style.opacity = on ? clamp(Math.min((t - c.a) / (FX.transition === 'punch' ? 0.08 : 0.15), (c.b - t) / 0.12)) : 0;
+    if (on && FX.transition === 'punch') { const u0 = t - c.a, out = clamp((t - (c.b - 0.14)) / 0.14);
+      c.el.style.transform = `scale(${1 + 0.1 * (1 - ease(u0 / 0.32)) - 0.04 * out})`; c.el.style.filter = `blur(${(10 * (1 - ease(u0 / 0.22)) + 6 * out).toFixed(2)}px)`; }
     if (on) { const u = t - c.a; c.draw(u); const p = c.el.querySelector('.pill'); if (p) enter(p, u, 0.25, 18, 'translateX(-50%)');
-      const st = c.el.querySelector('.stamp'); if (st) { const x = (u - (c.s.stampAt || 0.8)) / 0.25; st.style.opacity = clamp(x * 4); st.style.transform = `translateX(-50%) rotate(-8deg) scale(${1.6 - 0.6 * spring(x)})`; } }
+      if (c.s.flash) document.getElementById('fx-flash').style.opacity = 0.85 * clamp(1 - u / 0.14);
+      const st = c.el.querySelector('.stamp'); if (st) { const sk = u - (c.s.stampAt || 0.8); if (sk > 0 && sk < 0.25) { const a2 = 14 * (1 - sk / 0.25); c.el.style.translate = `${Math.sin(sk * 90) * a2}px ${Math.cos(sk * 70) * a2}px`; } else c.el.style.translate = '0 0'; const x = (u - (c.s.stampAt || 0.8)) / 0.25; st.style.opacity = clamp(x * 4); st.style.transform = `translateX(-50%) rotate(-8deg) scale(${1.6 - 0.6 * spring(x)})`; } }
   }
 };
 window.render(0);
