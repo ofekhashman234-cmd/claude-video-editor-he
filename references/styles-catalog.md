@@ -117,4 +117,4 @@
 | 51 | `levelup` | ארקייד: LEVEL UP ופס ניסיון | "משחק", "עליתם רמה" |
 | 52 | `confetti` | פיצוץ קונפטי | "כיף", "הצלחה", סיום |
 ועוד שלושה מסכים בלי פנים: `timeline` (ציר זמן של עריכה עם מסלולים וראש ניגון, כשמדברים על הכלי), `comment` (תיבת תגובה שבה מוקלדת מילה ונשלחת), ו-`endcard`.
-**איך:** `compose.py --duration <אורך> --audio voice.wav --overlay overlays/illustrate.html --data illus.json`. סצנה מתחילה בדיוק על המילה שהיא ממחישה (זמנים מ-words.json). דוגמה: גיוס-לקוח/סרטון-שיווק/illus/illus.json.
+**איך:** `compose.py --duration <אורך> --audio voice.wav --overlay overlays/illustrate.html --data illus.json`. סצנה מתחילה בדיוק על המילה שהיא ממחישה (זמנים מ-words.json).
