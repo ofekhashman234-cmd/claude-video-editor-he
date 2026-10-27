@@ -40,7 +40,7 @@ description: >
 5. אחרי האישור (סעיף 3): כותבים `scenes.json` ומרנדרים עם מנוע הסצנות. סרטון עם צילום: אותן סצנות כשכבה שקופה מעליו (`"transparent": true`).
 
 ## 2. להציע סגנונות, ולהראות אותם (הלב של הסקיל)
-1. בוחרים **3 עד 5 סגנונות** שמתאימים למסר מתוך `references/styles-catalog.md` (42 סגנונות ו-7 שילובים מוכנים: "המסביר", "הבית (המותג שלך)", "סייבר אדום", "דוקו", "רחוב", "פתיח וואו + נקי", "ציטוט ← מפוצל"). לא את כולם. לפחות שילוב אחד שלם, ולכל אחד שורה של "למה זה מתאים לסרטון הזה". בלוח: split, hook, pill, circle, chat, motion, screen, magazine, notes, bigword, behind, bgswap, pip, cinematic, docu, quotecard.
+1. בוחרים **3 עד 5 סגנונות** שמתאימים למסר מתוך `references/styles-catalog.md` (52 סגנונות ו-9 שילובים מוכנים: "המסביר", "הבית (המותג שלך)", "סייבר אדום", "דוקו", "רחוב", "פתיח וואו + נקי", "ציטוט ← מפוצל"). לא את כולם. לפחות שילוב אחד שלם, ולכל אחד שורה של "למה זה מתאים לסרטון הזה". בלוח: split, hook, pill, circle, chat, motion, screen, magazine, notes, bigword, behind, bgswap, pip, cinematic, docu, quotecard.
 2. **מראים, לא מתארים:** מריצים `board.py` על הסרטון, עם משפט הפתיח והמשפט החזק האמיתיים מהתמלול ועם צבעי המותג (`--styles` = רק הסגנונות שבחרתם):
    ```
    "$PY" <SKILL>/assets/board.py --video video.mp4 --out board/ --animate --hook "<הפתיח>" --key "<מילת מפתח>" \
@@ -101,6 +101,7 @@ description: >
 | `assets/overlays/captions.html` | כתוביות בגלולה + פתיח קינטי |
 | `assets/overlays/behind.html` | שכבה מאחורי האדם: טקסט על הקיר, מגזין, פתקים, לוגואים, רקע נייר ורקע משבצות מצויר |
 | `assets/overlays/mixed.html` | שילוב סגנונות בסרטון אחד: ריאליסטי ← מצויר ← נייר, עם הבזק בכל מעבר (יחד עם `--outline`) |
+| `assets/overlays/illustrate.html` | מסכי המחשה בלי פנים (סגנונות 43 עד 52): הקול נשאר, כל משפט מקבל מסך שמראה אותו. כולל ציר זמן ותיבת תגובה |
 | `assets/scenes/reel.html` | מנוע סצנות: סרטון שלם מ-scenes.json. 19 סוגי סצנות, 4 ערכות נושא (brand, cinematic, doc, light) ו-3 סגנונות כתוביות |
 | `references/scene-library.md` | כל סוגי הסצנות, השדות, האורכים והמבנה המומלץ |
 | `assets/examples/*.scenes.json` | שלושה סרטונים לדוגמה: סייבר אדום, דוקו, מותג |

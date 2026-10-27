@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="he" dir="rtl"><head><meta charset="utf-8">
+<!--
+  מסכי המחשה בלי פנים: כל משפט שנאמר מקבל מסך שמראה אותו בעיניים, מסונכרן למילים. רקע אטום, רץ עם compose.py --duration --audio.
+  window.DATA = {
+    words: [{w,s,e}],                    מ-transcribe.py (הקול נשאר, הפנים לא)
+    capY: 1560,                          כתוביות גלולה בקבוצות של עד 3 מילים, מילת מפתח אחת בכתום (keys)
+    keys: ["תחכו","רעיון",...],
+    scenes: [ {kind, s, e, ...} ]        הסוגים (10 הסגנונות + ציר זמן + תגובה + סיום):
+      kinetic   {hideCaps:true}          מילים ענקיות שנוחתות לפי זמני הדיבור. key = בלוק אדום
+      loading   {label, breakAt}         פס טעינה שנתקע על 99% ונמחק באיקס אדום
+      button    {label, clickAt}         סמן לוחץ על כפתור תלת-ממדי, גלי לחיצה
+      idea      {onAt}                   ראש בקו ניאון, נורה נדלקת בפנים
+      checklist {items:[{t,ok}], checkAt} כרטיס לבן: מה שנכון מקבל וי, השאר נמחק
+      terminal  {prompt}                 חלון טרמינל, פרומפט מוקלד
+      error     {label}                  הודעת שגיאה אדומה עם גליץ' ורעידה
+      chart     {badge}                  גרף שעולה ותג שקופץ
+      levelup   {}                       ארקייד: LEVEL UP ופס ניסיון במקטעים
+      confetti  {}                       פיצוץ קונפטי
+      timeline  {img:[...], title}       ציר זמן של עריכה: מסך תצוגה, 3 מסלולים, קליפים ננעלים וראש ניגון
+      comment   {word, reply}            תיבת תגובה: מוקלד, נשלח, ותשובה
+      endcard   {eyebrow, big, key, credits, url}
+  }
+-->
+<style>
+@font-face{font-family:Rubik;src:url('../fonts/rubik-hebrew-300-900.woff2') format('woff2');font-weight:300 900;unicode-range:U+0590-05FF,U+200C-2010,U+20AA,U+25CC,U+FB1D-FB4F}
+@font-face{font-family:Rubik;src:url('../fonts/rubik-latin-300-900.woff2') format('woff2');font-weight:300 900}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1080px;height:1920px;overflow:hidden;background:#0C0A1C;font-family:Rubik,sans-serif;color:#fff}
+body{position:relative;contain:paint}
+.bg{position:absolute;inset:0;overflow:hidden}
+.g1{position:absolute;width:1200px;height:1200px;left:-520px;top:-560px;border-radius:50%;background:radial-gradient(circle,rgba(106,75,255,.40),transparent 62%)}
+.g2{position:absolute;width:1100px;height:1100px;right:-520px;bottom:-520px;border-radius:50%;background:radial-gradient(circle,rgba(255,107,44,.26),transparent 62%)}
+.grid{position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.045) 1px,transparent 1px);background-size:72px 72px;-webkit-mask-image:radial-gradient(ellipse at 50% 42%,#000 20%,transparent 75%)}
+.grain{position:absolute;inset:0;background:url('../fx/grain.png');opacity:.07;mix-blend-mode:overlay}
+.sc{position:absolute;inset:0;opacity:0}
+.in{position:absolute;inset:0}
+.card{position:absolute;left:90px;right:90px;background:#fff;color:#17142E;border-radius:40px;box-shadow:0 50px 100px -30px rgba(0,0,0,.8)}
+.win{position:absolute;left:70px;right:70px;background:#15131F;border-radius:30px;box-shadow:0 50px 100px -30px rgba(0,0,0,.8),0 0 0 1.5px rgba(255,255,255,.08) inset;overflow:hidden}
+.win .bar{height:64px;display:flex;align-items:center;gap:14px;padding:0 26px;direction:ltr;background:rgba(255,255,255,.04)}
+.win .bar i{width:18px;height:18px;border-radius:50%}
+.kin{position:absolute;left:40px;right:40px;top:380px;display:flex;flex-direction:column;align-items:center;gap:10px}
+.kin span{display:inline-block;font-weight:900;font-size:230px;line-height:1;padding:0 30px 24px;border-radius:24px}
+.kin span.k{background:#E8202A}
+.pill{position:absolute;left:40px;right:40px;display:flex;justify-content:center;gap:16px;direction:rtl}
+.pill span{display:inline-block;font-weight:800;font-size:80px;color:#111;background:#fff;padding:8px 28px 16px;border-radius:24px;box-shadow:0 14px 30px rgba(0,0,0,.4)}
+.pill span.k{background:#FF6B2C;color:#fff}
+#flash{position:absolute;inset:0;background:#fff;opacity:0}
+.mono{font-family:Menlo,'SF Mono',monospace}
+</style></head><body>
+<div class="bg"><div class="g1" id="g1"></div><div class="g2" id="g2"></div><div class="grid"></div></div>
+<div id="root"></div><div id="caps"></div><div class="grain"></div><div id="flash"></div>
+<script>
+const D = window.DATA || {}, W = D.words || [], SC = D.scenes || [], KEYS = D.keys || [];
+const $ = id => document.getElementById(id), root = $('root');
+const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+const ease = x => 1 - Math.pow(1 - clamp(x), 4);
+const back = x => { x = clamp(x); const c = 1.7; return 1 + (c + 1) * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2); };
+const lerp = (a, b, x) => a + (b - a) * x;
+const esc = s => String(s ?? '').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const norm = w => w.replace(/[.,!?:;"'״׳()]/g, '');
+const rnd = k => { const x = Math.sin(k * 127.1) * 43758.5453; return x - Math.floor(x); };
+const svg = (w, h, inner, st = '') => `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="position:absolute;${st}">${inner}</svg>`;
+const draw = (el, x) => el.querySelectorAll('.dr').forEach((p, i) => { if (!p.dataset.len) { const L = p.getTotalLength(); p.dataset.len = L; p.style.strokeDasharray = L; } p.style.strokeDashoffset = p.dataset.len * (1 - clamp(x * 1.2 - i * .08)); });
+
+const BUILD = {
+  kinetic(g) { const ws = W.filter(w => w.s >= g.s - .01 && w.s < g.e);
+    return `<div class="kin">${ws.map(w => `<span class="${KEYS.includes(norm(w.w)) ? 'k' : ''}" data-s="${w.s}">${esc(norm(w.w))}</span>`).join('')}</div>`; },
+  loading(g) { return `<div class="card" style="top:560px;padding:56px 60px">
+    <div style="display:flex;align-items:center;gap:30px">${svg(110, 140, `<path d="M15 8h80M15 132h80M25 8c0 40 60 50 60 62s-60 22-60 62M85 8c0 40-60 50-60 62s60 22 60 62" stroke="#17142E" stroke-width="8" fill="none" stroke-linecap="round"/><path class="sand" d="M40 120h30l-15-30z" fill="#FF6B2C"/>`, 'position:relative')}
+    <div style="font-weight:800;font-size:64px">${esc(g.label || 'ממתין לאישור…')}</div></div>
+    <div style="margin-top:44px;height:44px;border-radius:99px;background:#ECEAF5;overflow:hidden;direction:ltr"><div class="fill" style="height:100%;width:0;background:linear-gradient(90deg,#6A4BFF,#FF6B2C);border-radius:99px"></div></div>
+    <div class="pct" style="margin-top:18px;font-weight:700;font-size:44px;color:#6B6688;direction:ltr;text-align:left">0%</div>
+    ${svg(900, 600, `<path class="dr" d="M120 80 L780 520" stroke="#E8202A" stroke-width="44" stroke-linecap="round"/><path class="dr" d="M780 80 L120 520" stroke="#E8202A" stroke-width="44" stroke-linecap="round"/>`, 'left:0;top:-60px')}</div>`; },
+  button(g) { return `<div style="position:absolute;left:0;right:0;top:620px;display:flex;justify-content:center">
+    <div class="btn" style="position:relative;font-weight:900;font-size:120px;color:#14112A;background:linear-gradient(180deg,#FF8A50,#FF6B2C);padding:40px 110px 56px;border-radius:70px;box-shadow:0 22px 0 #B8461A,0 60px 80px -20px rgba(0,0,0,.7)">${esc(g.label || '▶ התחל')}</div></div>
+    <div class="rings"></div>
+    ${svg(120, 160, `<path d="M10 10 L10 130 L42 100 L66 150 L88 140 L64 92 L108 92 Z" fill="#fff" stroke="#111" stroke-width="7" stroke-linejoin="round"/>`, 'left:0;top:0').replace('<svg', '<svg class="cur"')}`; },
+  idea() { return svg(1080, 1300, `<path class="dr" d="M640 1180 L640 1010 C640 960 700 950 720 900 L760 880 L740 830 L780 800 L740 760 C760 640 700 470 520 440 C330 410 230 560 250 700 C260 780 300 830 330 880 L330 1180" stroke="#8C7CFF" stroke-width="12" fill="none" stroke-linecap="round" stroke-linejoin="round" style="filter:drop-shadow(0 0 14px #6A4BFF)"/>
+    <g class="bulb"><circle cx="500" cy="660" r="120" fill="#FFC94A" opacity="0" class="glowc"/><path class="dr" d="M440 680 a70 70 0 1 1 120 0 c-14 22 -24 36 -24 60 h-72 c0 -24 -10 -38 -24 -60 z M466 770 h68 M474 800 h52" stroke="#FFC94A" stroke-width="12" fill="none" stroke-linecap="round" stroke-linejoin="round" style="filter:drop-shadow(0 0 16px #FFC94A)"/>
+    ${[[500, 470, 500, 420], [370, 540, 335, 505], [630, 540, 665, 505], [330, 660, 280, 660], [670, 660, 720, 660]].map(([a, b, c, d]) => `<path class="ray" d="M${a} ${b} L${c} ${d}" stroke="#FFC94A" stroke-width="12" stroke-linecap="round" opacity="0"/>`).join('')}</g>`, 'left:0;top:180px'); },
+  checklist(g) { return `<div class="card" style="top:430px;padding:50px 64px">${(g.items || []).map(it => `<div class="row" style="display:flex;align-items:center;gap:30px;padding:26px 0;border-bottom:2px solid #ECEAF5;font-weight:800;font-size:72px">
+    <div style="width:84px;height:84px;border-radius:22px;border:6px solid ${it.ok ? '#0E8A47' : '#C9C5DC'};display:grid;place-items:center;flex:none">${it.ok ? svg(60, 60, `<path class="dr" d="M8 32 L24 48 L54 12" stroke="#0E8A47" stroke-width="10" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`, 'position:relative') : ''}</div>
+    <span class="${it.ok ? 'ok' : 'no'}" style="position:relative">${esc(it.t)}${it.ok ? '' : '<i style="position:absolute;right:-6px;left:-6px;top:52%;height:8px;background:#E8202A;border-radius:4px;transform-origin:right;transform:scaleX(0)"></i>'}</span></div>`).join('')}</div>`; },
+  terminal(g) { return `<div class="win" style="top:520px;height:620px"><div class="bar"><i style="background:#FF5F57"></i><i style="background:#FEBC2E"></i><i style="background:#28C840"></i><span class="mono" style="margin-left:20px;color:#8D88AE;font-size:28px">claude</span></div>
+    <div style="padding:50px 56px;font-size:66px;font-weight:700;line-height:1.35"><span style="color:#FF6B2C">›</span> <span class="typed"></span><span class="caret" style="display:inline-block;width:8px;height:70px;background:#fff;vertical-align:-10px;margin-right:6px"></span></div></div>`; },
+  error(g) { return `<div class="win err" style="top:620px;background:#2A0F14;box-shadow:0 0 0 3px #E8202A inset,0 50px 100px -30px rgba(0,0,0,.8)"><div style="display:flex;align-items:center;gap:36px;padding:60px 60px">
+    <div style="width:130px;height:130px;border-radius:50%;background:#E8202A;display:grid;place-items:center;flex:none">${svg(70, 70, `<path d="M12 12 L58 58 M58 12 L12 58" stroke="#fff" stroke-width="12" stroke-linecap="round"/>`, 'position:relative')}</div>
+    <div><div style="font-weight:900;font-size:86px;color:#fff">${esc(g.label || 'שגיאה')}</div><div class="mono" style="font-size:32px;color:#FF9AA2;direction:ltr;text-align:right">Error: something broke</div></div></div></div>`; },
+  chart(g) { return `<div class="card" style="top:470px;height:760px;padding:50px">${svg(800, 560, `<path d="M40 520 H780 M40 520 V30" stroke="#ECEAF5" stroke-width="6"/>
+    <path class="dr" d="M60 470 C180 460 220 380 300 360 S420 300 480 250 S640 110 760 70" stroke="#6A4BFF" stroke-width="14" fill="none" stroke-linecap="round"/>
+    ${[[300, 360], [480, 250], [760, 70]].map(([x, y]) => `<circle class="pt" cx="${x}" cy="${y}" r="18" fill="#FF6B2C" opacity="0"/>`).join('')}`, 'left:50px;top:110px')}
+    <div class="badge" style="position:absolute;right:60px;direction:ltr;unicode-bidi:isolate;top:40px;font-weight:900;font-size:110px;color:#0E8A47">${esc(g.badge || '+1')}</div></div>`; },
+  levelup() { return `<div style="position:absolute;left:0;right:0;top:470px;text-align:center;direction:ltr">
+    <div class="lv" style="font-weight:900;font-size:170px;line-height:1;color:#FFC94A;text-shadow:8px 8px 0 #FF6B2C,16px 16px 0 #6A4BFF;letter-spacing:4px">LEVEL UP!</div>
+    <div style="margin:90px auto 0;width:820px;display:flex;gap:12px">${Array.from({length: 10}, (_, i) => `<i class="xp" style="flex:1;height:70px;background:#2A2540;border-radius:8px"></i>`).join('')}</div>
+    <div style="margin-top:26px;font-weight:700;font-size:44px;color:#CFC9F2">XP</div>
+    ${Array.from({length: 8}, (_, i) => svg(80, 80, `<path d="M40 4 L50 30 L78 30 L56 48 L64 76 L40 60 L16 76 L24 48 L2 30 L30 30 Z" fill="${i % 2 ? '#FFC94A' : '#fff'}"/>`, `left:${[60, 900, 150, 820, 40, 940, 300, 700][i]}px;top:${[-120, -100, 520, 540, 260, 280, -200, -210][i]}px`).replace('<svg', '<svg class="star"')).join('')}</div>`; },
+  confetti() { return `<div class="conf">${Array.from({length: 90}, (_, i) => `<i style="position:absolute;left:540px;top:820px;width:${18 + rnd(i) * 22}px;height:${10 + rnd(i + 7) * 16}px;border-radius:4px;background:${['#FF6B2C', '#6A4BFF', '#FFC94A', '#0E8A47', '#1F6FE0', '#fff'][i % 6]}"></i>`).join('')}</div>
+    <div class="fun" style="position:absolute;left:0;right:0;top:700px;text-align:center;font-size:260px;line-height:1">🎉</div>`; },
+  timeline(g) { const im = g.img || [];
+    const clip = (x, w, c, lab, th) => `<div class="clip" style="position:absolute;left:${x}px;width:${w}px;top:8px;bottom:8px;border-radius:12px;background:${c};overflow:hidden;display:flex;align-items:center;padding:0 14px;font-weight:700;font-size:26px;color:#fff">${th ? `<img src="${th}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.85">` : ''}<span style="position:relative">${lab}</span></div>`;
+    return `<div class="win" style="top:300px;height:1100px;direction:ltr"><div class="bar"><i style="background:#FF5F57"></i><i style="background:#FEBC2E"></i><i style="background:#28C840"></i><span style="margin-left:20px;color:#CFC9F2;font-size:30px;font-weight:600">${esc(g.title || 'העורך · ציר זמן')}</span></div>
+      <div style="position:relative;margin:28px auto 0;width:300px;height:533px;border-radius:24px;overflow:hidden;background:#000">${im.map((s, i) => `<img class="pv" src="${s}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:${i ? 0 : 1}">`).join('')}</div>
+      <div style="position:relative;margin:34px 30px 0;height:420px">
+        ${['T', 'V', 'A'].map((n, r) => `<div style="position:absolute;left:0;right:0;top:${r * 135}px;height:120px;border-radius:14px;background:rgba(255,255,255,.05)"><b style="position:absolute;left:-2px;top:40px;width:40px;text-align:center;color:#8D88AE;font-size:26px">${n}</b><div class="trk" style="position:absolute;left:46px;right:0;top:0;bottom:0">
+          ${r === 0 ? clip(0, 170, '#FF6B2C', 'פתיח') + clip(190, 240, '#6A4BFF', 'כתוביות') + clip(450, 200, '#1F6FE0', 'מושן') + clip(670, 190, '#0E8A47', 'CTA')
+          : r === 1 ? im.slice(0, 4).map((s, i) => clip(i * 215, 205, '#333', '', s)).join('')
+          : `<div style="position:absolute;inset:14px 0;display:flex;align-items:center;gap:5px">${Array.from({length: 80}, (_, i) => `<i style="flex:1;height:${18 + rnd(i * 3) * 72}px;background:#8C7CFF;border-radius:3px"></i>`).join('')}</div>`}</div></div>`).join('')}
+        <div class="ph" style="position:absolute;top:-16px;bottom:-10px;width:5px;background:#FF6B2C;left:46px;box-shadow:0 0 0 2px rgba(0,0,0,.4)"><i style="position:absolute;top:-14px;left:-14px;width:33px;height:22px;background:#FF6B2C;border-radius:6px"></i></div>
+      </div></div>`; },
+  comment(g) { return `<div class="card" style="top:520px;padding:44px 50px;border-radius:44px">
+    <div style="font-weight:800;font-size:44px;color:#6B6688;margin-bottom:30px">תגובות</div>
+    <div class="cm" style="display:flex;gap:24px;align-items:flex-start;margin-bottom:34px;opacity:0"><div style="width:96px;height:96px;border-radius:50%;background:linear-gradient(135deg,#6A4BFF,#FF6B2C);flex:none"></div>
+      <div><div style="font-weight:800;font-size:40px">${esc(g.user || "אתם")}</div><div style="font-weight:600;font-size:60px">${esc(g.word || 'עורך')}</div></div><div style="margin-right:auto;font-size:56px;color:#E8202A" class="heart">♥</div></div>
+    <div class="rp" style="display:flex;gap:20px;align-items:center;margin:0 120px 34px 0;opacity:0"><div style="background:#F1EFF9;border-radius:30px;padding:18px 30px;font-weight:600;font-size:46px">${esc(g.reply || 'שלחתי לך בפרטי 📩')}</div></div>
+    <div style="display:flex;gap:20px;align-items:center;border:4px solid #E4E1F0;border-radius:99px;padding:20px 30px">
+      <div class="inp" style="flex:1;font-weight:600;font-size:58px;min-height:70px"></div>
+      <div class="send" style="width:96px;height:96px;border-radius:50%;background:#FF6B2C;display:grid;place-items:center;flex:none">${svg(50, 50, `<path d="M44 25 L6 6 L14 25 L6 44 Z" fill="#fff"/>`, 'position:relative;transform:scaleX(-1)')}</div></div></div>`; },
+  endcard(g) { return `<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:36px;padding:0 70px">
+    <div class="e" style="font-weight:600;font-size:40px;color:#CFC9F2">${esc(g.eyebrow || '')}</div>
+    <div class="e" style="font-weight:800;font-size:124px;line-height:1.05">${esc(g.big || '').replace(esc(g.key || '§'), `<span style="color:#FF6B2C">${esc(g.key || '')}</span>`).replace('\\n', '<br>')}</div>
+    <div class="e" style="font-size:38px;color:#B9B3E0;line-height:1.5">${g.credits || ''}</div>
+    <div class="e" style="font-weight:600;font-size:38px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.16);padding:10px 30px;border-radius:99px;direction:ltr">${esc(g.url || '')}</div></div>`; },
+};
+
+const scenes = SC.map(g => { const el = document.createElement('div'); el.className = 'sc'; el.innerHTML = `<div class="in">${(BUILD[g.kind] || (() => ''))(g)}</div>`; root.appendChild(el); return { g, el, inn: el.firstChild }; });
+// כתוביות: קבוצות של עד 3 מילים, נשברות בפיסוק
+const chunks = []; { let cur = []; for (const w of W) { cur.push(w); if (cur.length >= 3 || /[.,!?]$/.test(w.w)) { chunks.push(cur); cur = []; } } if (cur.length) chunks.push(cur); }
+const capEl = $('caps'); const capY = D.capY ?? 1560;
+const chEls = chunks.map((c, i) => { const d = document.createElement('div'); d.className = 'pill'; d.style.top = capY + 'px';
+  d.innerHTML = c.map(w => `<span class="${KEYS.includes(norm(w.w)) ? 'k' : ''}" data-s="${w.s}">${esc(w.w)}</span>`).join(''); capEl.appendChild(d);
+  return { d, s: c[0].s, e: i + 1 < chunks.length ? chunks[i + 1][0].s : c[c.length - 1].e + .4 }; });
+
+const ANIM = {
+  kinetic(g, el, u, t) { el.querySelectorAll('.kin span').forEach(s => { const x = (t - +s.dataset.s) / .18; s.style.opacity = x > 0 ? 1 : 0; s.style.transform = `scale(${x < 1 ? lerp(2.2, 1, ease(x)) : 1}) rotate(${s.classList.contains('k') ? -4 : 0}deg)`; }); },
+  loading(g, el, u, t) { const b = (g.breakAt ?? g.e) - g.s, p = Math.min(.99, ease(u / Math.max(.3, b - .15)) * .99);
+    el.querySelector('.fill').style.width = (p * 100) + '%'; el.querySelector('.pct').textContent = Math.round(p * 100) + '%';
+    el.querySelector('.sand').style.transform = `scaleY(${1 - (u % 1)})`; el.querySelector('.sand').style.transformOrigin = '55px 120px';
+    draw(el, (u - b) / .2); const c = el.querySelector('.card'); const sh = u > b && u < b + .2 ? 14 : 0; c.style.transform = `translate(${Math.sin(t * 90) * sh}px,0) rotate(${u > b ? -2 : 0}deg)`; },
+  button(g, el, u, t) { const k = (g.clickAt ?? g.s + .4) - g.s, cur = el.querySelector('.cur'), mv = ease(u / k);
+    cur.style.left = lerp(860, 600, mv) + 'px'; cur.style.top = lerp(1300, 760, mv) + 'px'; const pr = u > k && u < k + .14;
+    el.querySelector('.btn').style.transform = `translateY(${pr ? 16 : 0}px) scale(${pr ? .96 : 1})`; el.querySelector('.btn').style.boxShadow = pr ? '0 6px 0 #B8461A,0 30px 50px -20px rgba(0,0,0,.7)' : '';
+    const r = (u - k) / .6; el.querySelector('.rings').innerHTML = r > 0 ? [0, .2, .4].map(d => { const x = clamp(r - d); return x > 0 && x < 1 ? `<div style="position:absolute;left:${540 - 300 * x - 120}px;top:${760 - 300 * x - 120}px;width:${600 * x + 240}px;height:${600 * x + 240}px;border-radius:50%;border:6px solid rgba(255,107,44,${1 - x})"></div>` : ''; }).join('') : ''; },
+  idea(g, el, u) { const on = (g.onAt ?? g.s + .6) - g.s; draw(el, u / .6); const x = ease((u - on) / .25);
+    el.querySelector('.glowc').setAttribute('opacity', x * .55); el.querySelectorAll('.ray').forEach((r, i) => r.setAttribute('opacity', clamp((u - on - i * .04) / .1))); },
+  checklist(g, el, u) { const c = (g.checkAt ?? g.s + .4) - g.s; el.querySelectorAll('.row').forEach((r, i) => { const x = ease((u - i * .06) / .25); r.style.opacity = x; r.style.transform = `translateX(${(1 - x) * -60}px)`; });
+    draw(el, (u - c) / .25); el.querySelectorAll('.no i').forEach((s, i) => s.style.transform = `scaleX(${ease((u - c - .1 - i * .08) / .2)})`);
+    el.querySelectorAll('.no').forEach((s, i) => s.style.color = u > c + .1 + i * .08 ? '#B9B5CC' : ''); el.querySelectorAll('.ok').forEach(s => s.style.transform = `scale(${u > c ? lerp(1.15, 1, ease((u - c) / .3)) : 1})`); },
+  terminal(g, el, u) { const p = g.prompt || ''; el.querySelector('.typed').textContent = p.slice(0, Math.floor(clamp((u - .05) / .5) * p.length)); el.querySelector('.caret').style.opacity = Math.floor(u * 4) % 2 ? .2 : 1; },
+  error(g, el, u, t) { const w = el.querySelector('.err'), gl = u < .25; w.style.transform = `translate(${gl ? Math.sin(t * 120) * 16 : 0}px,${gl ? Math.cos(t * 97) * 8 : 0}px) scale(${lerp(1.2, 1, ease(u / .15))})`;
+    w.style.filter = gl ? `drop-shadow(${Math.sin(t * 77) * 14}px 0 0 rgba(0,255,255,.6)) drop-shadow(${-Math.sin(t * 77) * 14}px 0 0 rgba(255,0,80,.6))` : ''; },
+  chart(g, el, u) { draw(el, u / .5); el.querySelectorAll('.pt').forEach((p, i) => p.setAttribute('opacity', clamp((u - .15 - i * .12) / .08)));
+    el.querySelector('.badge').style.transform = `scale(${u > .35 ? back((u - .35) / .25) : 0})`; },
+  levelup(g, el, u) { el.querySelector('.lv').style.transform = `scale(${back(u / .3)}) rotate(${Math.sin(u * 20) * (u < .4 ? 2 : 0)}deg)`;
+    el.querySelectorAll('.xp').forEach((x, i) => x.style.background = u > .15 + i * .06 ? (i < 9 ? '#0E8A47' : '#FFC94A') : '#2A2540');
+    el.querySelectorAll('.star').forEach((s, i) => { s.style.opacity = clamp((u - .1 - i * .04) / .1); s.style.transform = `scale(${.6 + .4 * Math.abs(Math.sin(u * 8 + i))}) rotate(${u * 90 + i * 30}deg)`; }); },
+  confetti(g, el, u) { el.querySelectorAll('.conf i').forEach((c, i) => { const a = rnd(i * 5) * Math.PI * 2, sp = 500 + rnd(i * 9) * 900, x = Math.cos(a) * sp * u, y = Math.sin(a) * sp * u - 900 * u + 1600 * u * u;
+      c.style.transform = `translate(${x}px,${y}px) rotate(${u * 900 * (rnd(i) - .5)}deg)`; c.style.opacity = clamp(1.4 - u); });
+    el.querySelector('.fun').style.transform = `scale(${back(u / .25)})`; },
+  timeline(g, el, u) { const dur = g.e - g.s; el.querySelectorAll('.clip').forEach((c, i) => { const x = ease((u - .08 - i * .07) / .25); c.style.opacity = clamp(x * 2); c.style.transform = `translateY(${(1 - x) * -80}px)`; });
+    el.querySelector('.ph').style.left = lerp(46, 46 + 860, clamp((u - .3) / Math.max(.5, dur - .4))) + 'px';
+    const pv = el.querySelectorAll('.pv'), k = Math.min(pv.length - 1, Math.floor(clamp((u - .3) / Math.max(.5, dur - .4)) * pv.length)); pv.forEach((p, i) => p.style.opacity = i === k ? 1 : 0); },
+  comment(g, el, u) { const wd = g.word || 'עורך', ty = clamp((u - .1) / .45); const sent = u > .7;
+    el.querySelector('.inp').textContent = sent ? '' : wd.slice(0, Math.ceil(ty * wd.length));
+    el.querySelector('.send').style.transform = `scale(${u > .62 && u < .72 ? .85 : 1})`;
+    const cm = el.querySelector('.cm'), x = ease((u - .72) / .25); cm.style.opacity = x; cm.style.transform = `translateY(${(1 - x) * 40}px)`;
+    el.querySelector('.heart').style.transform = `scale(${u > 1 ? back((u - 1) / .2) : 0})`;
+    const rp = el.querySelector('.rp'), y = ease((u - 1.05) / .25); rp.style.opacity = y; rp.style.transform = `translateY(${(1 - y) * 30}px)`; },
+  endcard(g, el, u) { el.querySelectorAll('.e').forEach((d, i) => { const x = ease((u - i * .12) / .6); d.style.opacity = x; d.style.transform = `translateY(${(1 - x) * 40}px)`; }); },
+};
+
+window.render = async function (t) {
+  $('g1').style.transform = `translate(${Math.sin(t * .35) * 60}px,${Math.cos(t * .3) * 40}px)`;
+  $('g2').style.transform = `translate(${Math.cos(t * .3) * 60}px,${Math.sin(t * .4) * 40}px)`;
+  let fl = 0;
+  for (const { g, el, inn } of scenes) { const on = t >= g.s && t < g.e; el.style.opacity = on ? 1 : 0; if (!on) continue; const u = t - g.s;
+    const x = ease(u / .22); inn.style.transform = `translateY(${(1 - x) * 70}px) scale(${lerp(.94, 1, x)})`; inn.style.opacity = clamp(u / .08);
+    (ANIM[g.kind] || (() => {}))(g, el, u, t); if (u < .1 && g.flash !== false) fl = Math.max(fl, .35 * (1 - u / .1)); }
+  const hide = SC.some(g => g.hideCaps && t >= g.s && t < g.e);   // סצנה שהמילים כבר ענקיות בה (kinetic) לא צריכה כתובית
+  for (const c of chEls) { const on = !hide && t >= c.s && t < c.e; c.d.style.display = on ? 'flex' : 'none'; if (!on) continue;
+    c.d.querySelectorAll('span').forEach(s => { const x = (t - +s.dataset.s) / .2; s.style.opacity = clamp(x * 4); s.style.transform = `scale(${lerp(.6, 1, ease(x))})`; }); }
+  $('flash').style.opacity = fl;
+  const imgs = [...document.querySelectorAll('img')].filter(i => !i.complete);
+  await Promise.all(imgs.map(i => i.decode().catch(() => {})));
+};
+window.render(0);
+</script></body></html>
