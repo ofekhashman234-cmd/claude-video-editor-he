@@ -166,8 +166,8 @@ S.neon = {
     add(`<div class="full" style="opacity:.8;background:url('data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%27340%27 height=%27160%27%3E%3Cg fill=%27none%27 stroke=%27%232e1824%27 stroke-width=%276%27%3E%3Cpath d=%27M0 3H340M0 83H340M3 0V80M173 0V80M88 80V160M258 80V160%27/%3E%3C/g%3E%3C/svg%3E') 0 0/340px 160px"></div>`);
     add(`<div class="a" data-a="flick" data-t=".2" data-d=".9" data-l="flk" style="top:120px;width:100%;text-align:center;font:400 250px/1 'Suez One';color:#ffe6f6;text-shadow:0 0 8px #fff,0 0 24px #ff2bd6,0 0 60px #ff2bd6,0 0 120px #ff2bd6">${TITLE}</div>`);
     add(`<div class="a" data-a="flick" data-t=".6" data-d=".6" style="top:640px;right:70px;width:260px;height:260px;border-radius:50%;border:10px solid #c8fbff;box-shadow:0 0 22px #00f0ff,inset 0 0 22px #00f0ff"></div>`); },
-  front(){ this.cap=capInit("ne","bottom:240px;font:400 108px/1.1 'Suez One';color:transparent;-webkit-text-stroke:4px #8ff8ff;text-shadow:0 0 30px rgba(0,240,255,.8)","flick");
-    add(`<style>.cap.ne .w.on{color:#d8feff}.cap.ne .k.on{-webkit-text-stroke-color:#ff9cf0;color:#ffe3f9;text-shadow:0 0 30px #ff2bd6}</style>`); },
+  front(){ this.cap=capInit("ne","bottom:240px;font:400 108px/1.1 'Suez One';color:#7FF6FF;-webkit-text-stroke:3px rgba(0,16,26,.75);paint-order:stroke fill;text-shadow:0 0 8px rgba(127,246,255,.95),0 0 30px rgba(0,240,255,.75)","pop");
+    add(`<style>.cap.ne .k{color:#ffe3f9;text-shadow:0 0 8px #fff,0 0 30px #ff2bd6}</style>`); },
   render(t){ capRender(this.cap,t); }
 };
 
@@ -392,6 +392,15 @@ S.synth = {
 const st = S[STYLE];
 if(!st) document.body.innerHTML = "<h1 style='color:red;font-size:80px'>unknown style "+STYLE+"</h1>";
 else if(LAYER==="back") st.back(); else st.front();
+// DATA.safe: מזיז כתוביות מחוץ לאזורים שאינסטגרם מכסה (380 הפיקסלים התחתונים, 220 העליונים)
+if(st && D.safe){
+  root.querySelectorAll(".a").forEach(el=>{ if(el.textContent.trim()===TITLE && parseFloat(el.style.top)<200) el.style.top=(STYLE==="magazine"?170:200)+"px"; });
+}
+if(st && D.safe && LAYER!=="back"){
+  root.querySelectorAll(".cap").forEach(el=>{ if(el.classList.contains("hd")||el.classList.contains("bp")){ if(parseFloat(getComputedStyle(el).top)<260) el.style.top="260px"; }
+    else if(parseFloat(getComputedStyle(el).bottom)<470) el.style.bottom="470px"; });
+  const cb=document.getElementById("cb"); if(cb){ const b=cb.parentElement; b.style.top="250px"; b.style.minHeight="0"; b.style.padding="22px 36px"; cb.style.fontSize="60px"; }
+}
 window.render = function(t){ if(st){ anim(t); if(LAYER!=="back" || ["glass","synth"].includes(STYLE)) st.render.call(st,t); } };
 window.STYLES = Object.keys(S);
 </script>

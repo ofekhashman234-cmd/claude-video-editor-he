@@ -65,7 +65,10 @@ def render_html(html, data, t0, n, fps, sink):
         b = p.chromium.launch(args=["--disable-gpu", "--disable-renderer-backgrounding", "--disable-background-timer-throttling", "--disable-backgrounding-occluded-windows", "--force-color-profile=srgb"]); pg = b.new_page(viewport={"width": 1080, "height": 1920})
         pg.add_init_script("window.DATA = " + json.dumps(data, ensure_ascii=False) + ";")
         errs = []; pg.on("pageerror", lambda e: errs.append(str(e)))
-        pg.goto(Path(html).resolve().as_uri()); pg.evaluate("document.fonts.ready"); pg.wait_for_timeout(200)
+        pg.goto(Path(html).resolve().as_uri())
+        # כל הגופנים נטענים מראש: fonts.ready מחכה רק לגופנים שבשימוש, וכתובית שמופיעה מאוחר יותר יוצאת בפריים הראשון בגופן הלא נכון
+        pg.evaluate("Promise.all([...document.fonts].map(f => f.load().catch(() => null)))")
+        pg.evaluate("document.fonts.ready"); pg.wait_for_timeout(200)
         # פיקסל שקוף אחד בפינה: בלעדיו כרום שומר פריים אטום (רקע נייר / משבצות) כ-RGB בלי שקיפות,
         # הפורמט מתחלף באמצע, ffmpeg בונה מחדש את הגרף ומאבד פריימים
         pg.add_style_tag(content="body{clip-path:polygon(0 0,100% 0,100% calc(100% - 1px),calc(100% - 1px) calc(100% - 1px),calc(100% - 1px) 100%,0 100%)}")
@@ -198,10 +201,10 @@ def main():
             base_m = f"[po{k}]alphaextract,scale=270:480,{grow}"
             if kind == "torn":
                 graph.append(f"{base_m},scale=1080:1920,noise=alls=60:allf=t,lut=y='if(gt(val\\,110)\\,255\\,0)',format=gray[m{k}];"
-                             f"color=c=0xFFFDF6:s=1080x1920:r={a.fps}[w{k}];[w{k}][m{k}]alphamerge[ol{k}];[{last_b}][ol{k}]overlay=0:0:{en}[bo{k}]")
+                             f"color=c=0xFFFDF6:s=1080x1920:r={a.fps}:d={n / a.fps:.3f}[w{k}];[w{k}][m{k}]alphamerge[ol{k}];[{last_b}][ol{k}]overlay=0:0:{en}[bo{k}]")
             else:   # marker: טבעת לבנה (הפרש בין שתי הגדלות), רועדת כל 3 פריימים
                 graph.append(f"{base_m},split[mb{k}][mx{k}];[mx{k}]erosion,erosion[ms{k}];[mb{k}][ms{k}]blend=all_mode=difference,scale=1080:1920,lut=y='if(gt(val\\,60)\\,255\\,0)',format=gray[m{k}];"
-                             f"color=c=white:s=1080x1920:r={a.fps}[w{k}];[w{k}][m{k}]alphamerge[ol{k}];"
+                             f"color=c=white:s=1080x1920:r={a.fps}:d={n / a.fps:.3f}[w{k}];[w{k}][m{k}]alphamerge[ol{k}];"
                              f"[{last_b}][ol{k}]overlay=x='5*sin(floor(n/3)*2.1)':y='5*cos(floor(n/3)*1.7)':{en}[bo{k}]")
             last_b = f"bo{k}"
         graph.append(f"[{last_b}][ps]overlay=0:0:format=auto" + (f",{zp}" if zp else "") + post_s + "[b2]")
@@ -218,7 +221,7 @@ def main():
             cmd += ["-af", "highpass=f=70,loudnorm=I=-14:TP=-1.5:LRA=11"]
         cmd += ["-c:a", "aac", "-b:a", "192k"]
     cmd += ["-c:v", "libx264", "-crf", "20" if a.preview else "17", "-preset", "veryfast" if a.preview else "medium",
-            "-movflags", "+faststart", "-shortest", str(out)]
+            "-movflags", "+faststart", "-shortest", "-frames:v", str(n), str(out)]   # בלי סאונד, -shortest לא עוצר מקור צבע אינסופי
 
     if not a.overlay:
         subprocess.run(cmd, check=True)
