@@ -1,0 +1,399 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<!-- looks.html: 22 עולמות עיצוב (סגנונות 53 עד 74). שתי שכבות מאותו קובץ:
+     DATA.layer = "back"  (מאחורי האדם, עם compose --behind)  /  "front" (מעליו, עם --overlay)
+     DATA.style = מזהה הסגנון, DATA.words = מילים עם זמנים (שניות מתחילת הקטע), DATA.key = מילת מפתח, DATA.title = כותרת קצרה, DATA.name = שם היוצר
+     סגנונות "על הצילום האמיתי" (vhs, polaroid, win95, chat, breaking) רצים בלי --behind. -->
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;900&family=Rubik+Glitch&family=Rubik+Pixels&family=Rubik+Bubbles&family=Rubik+Wet+Paint&family=Rubik+Spray+Paint&family=Rubik+80s+Fade&family=Rubik+Scribble&family=Rubik+Burned&family=Suez+One&family=Frank+Ruhl+Libre:wght@500;900&family=Amatic+SC:wght@700&family=Secular+One&family=David+Libre:wght@700&display=block" rel="stylesheet">
+<style>
+  html,body{margin:0;width:1080px;height:1920px;overflow:hidden;background:transparent}
+  *{box-sizing:border-box}
+  #root{position:absolute;inset:0;overflow:hidden;font-family:Rubik,sans-serif;direction:rtl}
+  .a{position:absolute}
+  .full{position:absolute;inset:0}
+  .ltr{direction:ltr;unicode-bidi:isolate}
+  .cap{position:absolute;left:60px;right:60px;text-align:center}
+  .cap .w{display:inline-block;margin:0 .14em}
+</style>
+</head>
+<body><div id="root"></div>
+<script>
+const D = window.DATA || {};
+const LAYER = D.layer || "front", STYLE = D.style || "paper";
+const W = (D.words || []).map(x => ({ w: x.w.replace(/[.,!?]+$/,''), s: x.s, e: x.e }));
+const KEY = D.key || (W[0] ? W[0].w : "רעיון");
+const TITLE = D.title || KEY;
+const NAME = D.name || "";   // שם היוצר: מבזק, תגובות, קרדיטים
+const root = document.getElementById("root");
+
+/* ---------- עזרים ---------- */
+const clamp = (v,a,b)=>Math.max(a,Math.min(b,v)), lerp=(a,b,p)=>a+(b-a)*p;
+const E = { o:t=>1-Math.pow(1-t,3), io:t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2,
+  b:t=>{const c1=1.9,c3=c1+1;return 1+c3*Math.pow(t-1,3)+c1*Math.pow(t-1,2)},
+  bn:t=>{const n=7.5625,d=2.75;if(t<1/d)return n*t*t;if(t<2/d)return n*(t-=1.5/d)*t+.75;if(t<2.5/d)return n*(t-=2.25/d)*t+.9375;return n*(t-=2.625/d)*t+.984375} };
+const hash = n => { const x=Math.sin(n*127.1+311.7)*43758.5453; return x-Math.floor(x); };
+const add = html => { root.insertAdjacentHTML("beforeend", html); return root.lastElementChild; };
+// מילים -> קבוצות של עד 3 מילים (שבירה על פסיק/נקודה או רווח בדיבור)
+const CH = (()=>{ const out=[]; let cur=[]; (D.words||[]).forEach((x,i)=>{ cur.push(i);
+  const nx=(D.words||[])[i+1]; const brk=/[.,!?]$/.test(x.w)||cur.length>=3||(nx&&nx.s-x.e>.22)||!nx;
+  if(brk){ out.push({ids:cur,s:W[cur[0]].s,e:W[cur[cur.length-1]].e}); cur=[]; } }); return out; })();
+const chunkAt = t => { let k=-1; CH.forEach((c,i)=>{ if(t>=c.s-0.05) k=i; }); return k; };
+const isKey = w => w===KEY;
+
+/* ---------- אנימציה כללית: data-a (כניסה) + data-l (תנועה מתמשכת) ---------- */
+function anim(t){
+  root.querySelectorAll("[data-a],[data-l]").forEach(el=>{
+    const st=+(el.dataset.t||0), d=+(el.dataset.d||.45), a=el.dataset.a||"", p=clamp((t-st)/d,0,1);
+    let tr="", op=t<st?0:1, cp="", fl="";
+    switch(a){
+      case "pop": tr=`scale(${lerp(.25,1,E.b(p))})`; op=t<st?0:Math.min(1,p*3); break;
+      case "drop": tr=`translateY(${(1-E.bn(p))*-520}px)`; break;
+      case "up": tr=`translateY(${(1-E.o(p))*240}px)`; op=t<st?0:E.o(p); break;
+      case "down": tr=`translateY(${(1-E.o(p))*-240}px)`; op=t<st?0:E.o(p); break;
+      case "right": tr=`translateX(${(1-E.o(p))*700}px)`; break;
+      case "left": tr=`translateX(${(1-E.o(p))*-700}px)`; break;
+      case "stamp": tr=`scale(${lerp(2.6,1,E.o(p))})`; op=t<st?0:Math.min(1,p*4); break;
+      case "zoom": tr=`scale(${lerp(1.5,1,E.o(p))})`; op=t<st?0:E.o(p); fl=`blur(${(1-p)*14}px)`; break;
+      case "wipe": cp=`inset(0 0 0 ${(1-E.o(p))*100}%)`; break;
+      case "wipeD": cp=`inset(0 0 ${(1-E.o(p))*100}% 0)`; break;
+      case "spray": cp=`circle(${E.o(p)*90}% at 50% 50%)`; fl=`blur(${(1-p)*10}px)`; break;
+      case "flick": op=t<st?0:(p<1?(hash(Math.floor(t*22)+st*7)>.45?1:.08):1); break;
+      case "glitch": if(t>=st&&p<1){ tr=`translateX(${(hash(Math.floor(t*30))-.5)*70}px) skewX(${(hash(Math.floor(t*30)+3)-.5)*20}deg)`; op=hash(Math.floor(t*30)+9)>.25?1:0; } break;
+      case "spin": tr=`rotate(${(1-E.b(p))*-200}deg) scale(${lerp(.2,1,E.o(p))})`; break;
+      case "fade": op=t<st?0:E.o(p); break;
+      case "develop": op=1-E.io(p); break;
+      case "type": { const full=el.dataset.full||(el.dataset.full=el.textContent); const n=Math.floor(full.length*p);
+        el.textContent=full.slice(0,n)+(p<1&&el.dataset.caret?"▌":""); op=t<st?0:1; break; }
+      case "draw": el.querySelectorAll("path,line,circle,rect,polyline").forEach(s=>{ const L=s.getTotalLength?s.getTotalLength():800;
+        s.style.strokeDasharray=L; s.style.strokeDashoffset=L*(1-E.io(p)); }); break;
+    }
+    const l=el.dataset.l||""; let lp="";
+    if(l.includes("bob")) lp+=` translateY(${Math.sin(t*2.2+st*3)*14}px)`;
+    if(l.includes("jit")){ const f=Math.floor(t*8); lp+=` translate(${(hash(f+st*13)-.5)*10}px,${(hash(f+st*13+5)-.5)*10}px) rotate(${(hash(f+st*13+9)-.5)*3}deg)`; }
+    if(l.includes("pulse")) lp+=` scale(${1+Math.sin(t*6)*.035})`;
+    if(l.includes("spin")) lp+=` rotate(${t*(+el.dataset.sp||40)}deg)`;
+    if(l.includes("blink")) op*= (Math.floor(t*2)%2? .15:1);
+    if(l.includes("flk")) op*= (hash(Math.floor(t*14))>.93?.25:1);
+    if(l.includes("scroll")){ lp+=` translateX(${(t*(+el.dataset.sp||220))%(+el.dataset.wrap||1400)}px)`; }
+    el.style.transform=(el.dataset.base||"")+" "+tr+lp;
+    el.style.opacity=op; if(cp) el.style.clipPath=cp; if(fl) el.style.filter=fl;
+  });
+}
+
+/* ---------- כתוביות כלליות ---------- */
+function capInit(cls, css, a){ add(`<style>.cap.${cls}{${css}}</style>`); const el=add(`<div class="cap ${cls}"></div>`); el._a=a||"pop"; el._k=-2; return el; }
+function capRender(el, t, wordCss){
+  if(!el) return;
+  const k=chunkAt(t); if(k<0){ el.innerHTML=""; return; }
+  if(k!==el._k){ el._k=k; const c=CH[k];
+    el.innerHTML=`<span data-a="${el._a}" data-t="${c.s-0.04}" data-d=".32" style="display:inline-block">`+
+      c.ids.map(i=>`<span class="w${isKey(W[i].w)?" k":""}" data-i="${i}">${W[i].w}</span>`).join(" ")+"</span>"; }
+  el.querySelectorAll(".w").forEach(s=>{ const x=W[+s.dataset.i]; s.classList.toggle("on", t>=x.s-.02); });
+}
+
+/* ================= 22 הסגנונות ================= */
+const S = {};
+
+/* 53 נייר גזור: קראפט, רצועות נייר קרועות, מילים גזורות שקופצות בסטופ-מושן */
+S.paper = {
+  back(){ add(`<div class="full" style="background:radial-gradient(ellipse at 30% 20%,#d8b98a,#b88d58 70%,#9c7443);"></div>`);
+    add(`<div class="full" style="opacity:.25;background:repeating-linear-gradient(17deg,transparent 0 6px,rgba(80,50,20,.18) 6px 7px),repeating-linear-gradient(-63deg,transparent 0 9px,rgba(255,240,210,.2) 9px 10px)"></div>`);
+    add(`<div class="a" data-a="left" data-t=".05" data-d=".5" data-l="jit" style="top:150px;right:-40px;width:1160px;height:300px;background:#fbf6ea;clip-path:polygon(0 8%,6% 0,14% 6%,22% 1%,31% 7%,40% 2%,52% 8%,61% 1%,72% 6%,83% 0,92% 7%,100% 3%,100% 93%,91% 100%,80% 94%,69% 99%,57% 93%,46% 100%,35% 95%,24% 100%,13% 94%,4% 99%,0 92%);transform-origin:center"></div>`);
+    add(`<div class="a" data-a="stamp" data-t=".35" data-d=".25" data-l="jit" data-base="rotate(-3deg)" style="top:175px;right:70px;font:900 210px/1 'Frank Ruhl Libre';color:#1d1a16;letter-spacing:-4px">${TITLE}</div>`); },
+  front(){ add(`<div class="a" data-a="drop" data-t=".1" data-base="rotate(-8deg)" style="top:120px;right:90px;width:230px;height:62px;background:rgba(255,236,150,.85)"></div>`);
+    add(`<div class="a" data-a="drop" data-t=".2" data-base="rotate(7deg)" style="top:118px;left:80px;width:200px;height:62px;background:rgba(170,215,240,.85)"></div>`);
+    const pal=[["#fff","#111","'Frank Ruhl Libre'"],["#111","#fff","Rubik"],["#e8452c","#fff","'Suez One'"],["#f4d35e","#111","'David Libre'"],["#fff","#c1121f","'Secular One'"]];
+    this.cap=add(`<div class="cap" style="bottom:210px"></div>`);
+    this.cap.innerHTML=W.map((x,i)=>{ const p=pal[i%pal.length]; return `<span data-a="stamp" data-t="${x.s}" data-d=".15" data-l="jit" data-base="rotate(${((hash(i)-.5)*10).toFixed(1)}deg)" style="display:inline-block;margin:10px 8px;padding:8px 22px 14px;background:${p[0]};color:${p[1]};font:900 96px/1 ${p[2]};box-shadow:0 8px 14px rgba(0,0,0,.35)">${x.w}</span>`; }).join(""); },
+  render(t){ const k=chunkAt(t); const ids=k<0?[]:CH[k].ids; this.cap.querySelectorAll("[data-a]").forEach((el,i)=>el.style.display=ids.includes(i)?"inline-block":"none"); }
+};
+
+/* 54 קולנוע ישן: ספיה, פס פילם עם חורים, הבהוב, שריטות, כרטיס כתוביות של סרט אילם */
+S.vintage = {
+  back(){ add(`<div class="full" style="background:radial-gradient(ellipse at 50% 40%,#7a5a36 0%,#4a321c 55%,#1c120a 100%)"></div>`);
+    add(`<div class="a" data-a="flick" data-t=".1" data-d=".8" style="top:90px;width:100%;text-align:center;font:700 64px/1 'David Libre';color:#e9d6ae;letter-spacing:10px">⁂ פרק א׳ ⁂</div>`); },
+  front(){ const sp=n=>Array.from({length:14},(_,i)=>`<div style="position:absolute;${n}:22px;top:${i*140+30}px;width:36px;height:72px;border-radius:9px;background:#e8dcc4"></div>`).join("");
+    add(`<div class="a" style="top:0;bottom:0;left:0;width:82px;background:#0d0a07">${sp("left")}</div>`);
+    add(`<div class="a" style="top:0;bottom:0;right:0;width:82px;background:#0d0a07">${sp("right")}</div>`);
+    this.fl=add(`<div class="full" style="background:#fff3d6"></div>`);
+    this.sc=add(`<div class="a" style="top:0;bottom:0;width:3px;background:rgba(255,245,220,.6)"></div>`);
+    this.dust=add(`<div class="full"></div>`);
+    add(`<div class="a" data-a="flick" data-t=".25" data-d=".5" style="left:120px;right:120px;bottom:150px;padding:34px 30px 40px;background:#120d08;border:6px double #d9c08f;text-align:center"><div style="font:400 30px/1 'David Libre';color:#b9a274;letter-spacing:8px;margin-bottom:12px">❦</div><div id="vc" style="font:700 74px/1.25 'David Libre';color:#efe1c2"></div></div>`);
+    this.vc=document.getElementById("vc"); },
+  render(t){ const f=Math.floor(t*24); this.fl.style.opacity=(hash(f)*.07).toFixed(3);
+    this.sc.style.left=(120+hash(Math.floor(t*6))*840)+"px"; this.sc.style.opacity=hash(f+3)>.4?.7:0;
+    this.dust.innerHTML=Array.from({length:6},(_,i)=>{const h=hash(f*7+i);return `<div style="position:absolute;left:${hash(f+i*3)*1000}px;top:${h*1800}px;width:${4+h*8}px;height:${4+h*8}px;border-radius:50%;background:rgba(20,12,4,.55)"></div>`}).join("");
+    const k=chunkAt(t); this.vc.textContent=k<0?"":CH[k].ids.map(i=>W[i].w).join(" "); }
+};
+
+/* 55 VHS: על הצילום האמיתי. קווי סריקה, PLAY, REC מהבהב, שעון רץ, פס רעש שזז */
+S.vhs = {
+  back(){},
+  front(){ add(`<div class="full" style="background:repeating-linear-gradient(0deg,rgba(0,0,0,.18) 0 2px,transparent 2px 5px)"></div>`);
+    add(`<div class="full" style="box-shadow:inset 0 0 220px rgba(0,0,0,.75)"></div>`);
+    add(`<div class="a ltr" style="top:80px;left:70px;font:400 64px/1 'Rubik Glitch';color:#fff;text-shadow:3px 0 #ff2a6d,-3px 0 #05d9e8">PLAY ▶</div>`);
+    add(`<div class="a ltr" data-l="blink" style="top:84px;right:80px;font:700 52px/1 Rubik;color:#fff"><span style="color:#ff2a2a">●</span> REC</div>`);
+    this.clk=add(`<div class="a ltr" style="bottom:90px;left:70px;font:400 46px/1 'Rubik Glitch';color:#fff;text-shadow:2px 0 #ff2a6d,-2px 0 #05d9e8"></div>`);
+    this.band=add(`<div class="a" style="left:0;right:0;height:90px;background:linear-gradient(transparent,rgba(255,255,255,.22),rgba(255,255,255,.05),transparent)"></div>`);
+    this.cap=capInit("vh","bottom:300px;font:400 104px/1.1 'Rubik Glitch';color:#fff;text-shadow:5px 0 #ff2a6d,-5px 0 #05d9e8,0 6px 16px rgba(0,0,0,.6)","glitch"); },
+  render(t){ const s=7+Math.floor(t); this.clk.textContent=`${D.vhsDate||"OCT 31 1994"}  21:15:${String(s).padStart(2,"0")}`;
+    this.band.style.top=((t*520)%2200-150)+"px"; capRender(this.cap,t); }
+};
+
+/* 56 עתידני HUD: רשת ניווט, טבעות מסתובבות, סוגריים, קו סריקה, קריאות נתונים */
+S.hud = {
+  back(){ add(`<div class="full" style="background:radial-gradient(ellipse at 50% 35%,#0b3350,#04121f 70%)"></div>`);
+    add(`<div class="a" style="left:-400px;right:-400px;bottom:-200px;height:900px;transform:perspective(600px) rotateX(62deg);background:linear-gradient(rgba(0,229,255,.35) 2px,transparent 2px) 0 0/100% 90px,linear-gradient(90deg,rgba(0,229,255,.35) 2px,transparent 2px) 0 0/90px 100%"></div>`);
+    [620,820,1020].forEach((d,i)=>add(`<div class="a" data-a="zoom" data-t="${.1+i*.12}" data-l="spin" data-sp="${[30,-22,14][i]}" style="left:${470-d/2}px;top:${700-d/2}px;width:${d}px;height:${d}px;border-radius:50%;border:${[4,2,6][i]}px ${["dashed","solid","dotted"][i]} rgba(0,229,255,${[.7,.35,.5][i]})"></div>`)); },
+  front(){ const br=(pos,rot)=>`<div class="a" data-a="zoom" data-t=".05" style="${pos};width:120px;height:120px;border-top:8px solid #00e5ff;border-right:8px solid #00e5ff;transform:rotate(${rot}deg)"></div>`;
+    add(br("top:60px;right:60px",0)+br("top:60px;left:60px",-90)+br("bottom:60px;left:60px",180)+br("bottom:60px;right:60px",90));
+    this.scan=add(`<div class="a" style="left:0;right:0;height:4px;background:#00e5ff;box-shadow:0 0 24px 6px rgba(0,229,255,.6)"></div>`);
+    add(`<div class="a" data-a="right" data-t=".3" style="top:520px;right:70px;width:280px;font:500 30px/1.5 Rubik;color:#bff8ff">
+      <div style="color:#00e5ff;font-weight:900;font-size:34px">סטטוס</div><div>${TITLE} זוהה</div>
+      <div style="height:14px;background:rgba(0,229,255,.2);margin:14px 0"><div id="hb" style="height:100%;background:#00e5ff;width:0"></div></div>
+      <div class="ltr" style="text-align:right;font-size:26px;opacity:.8" id="hn">0%</div></div>`);
+    this.hb=document.getElementById("hb"); this.hn=document.getElementById("hn");
+    this.cap=capInit("hd","top:200px;font:700 82px/1.15 Rubik;color:#e6fdff;letter-spacing:2px;text-shadow:0 0 18px rgba(0,229,255,.9)","glitch");
+    add(`<style>.cap.hd .k{color:#00e5ff}</style>`); },
+  render(t){ this.scan.style.top=((t*700)%2100-100)+"px"; const v=clamp((t-.4)/2.4,0,1); this.hb.style.width=(v*100)+"%"; this.hn.textContent=Math.round(v*100)+"%"; capRender(this.cap,t); }
+};
+
+/* 57 ניאון: קיר לבנים כהה, שלט ניאון שנדלק בהבהוב מאחורי הראש */
+S.neon = {
+  back(){ add(`<div class="full" style="background:#140b14"></div>`);
+    add(`<div class="full" style="opacity:.8;background:url('data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%27340%27 height=%27160%27%3E%3Cg fill=%27none%27 stroke=%27%232e1824%27 stroke-width=%276%27%3E%3Cpath d=%27M0 3H340M0 83H340M3 0V80M173 0V80M88 80V160M258 80V160%27/%3E%3C/g%3E%3C/svg%3E') 0 0/340px 160px"></div>`);
+    add(`<div class="a" data-a="flick" data-t=".2" data-d=".9" data-l="flk" style="top:120px;width:100%;text-align:center;font:400 250px/1 'Suez One';color:#ffe6f6;text-shadow:0 0 8px #fff,0 0 24px #ff2bd6,0 0 60px #ff2bd6,0 0 120px #ff2bd6">${TITLE}</div>`);
+    add(`<div class="a" data-a="flick" data-t=".6" data-d=".6" style="top:640px;right:70px;width:260px;height:260px;border-radius:50%;border:10px solid #c8fbff;box-shadow:0 0 22px #00f0ff,inset 0 0 22px #00f0ff"></div>`); },
+  front(){ this.cap=capInit("ne","bottom:240px;font:400 108px/1.1 'Suez One';color:transparent;-webkit-text-stroke:4px #8ff8ff;text-shadow:0 0 30px rgba(0,240,255,.8)","flick");
+    add(`<style>.cap.ne .w.on{color:#d8feff}.cap.ne .k.on{-webkit-text-stroke-color:#ff9cf0;color:#ffe3f9;text-shadow:0 0 30px #ff2bd6}</style>`); },
+  render(t){ capRender(this.cap,t); }
+};
+
+/* 58 קומיקס: נקודות הלפטון, קרני פיצוץ, מסגרת משבצת, בועת דיבור, "בום!" */
+S.comic = {
+  back(){ add(`<div class="full" style="background:repeating-conic-gradient(from 0deg at 50% 38%,#ffd23f 0 9deg,#ffb703 9deg 18deg)"></div>`);
+    add(`<div class="full" style="opacity:.35;background:radial-gradient(circle,#e63946 30%,transparent 32%) 0 0/34px 34px"></div>`); },
+  front(){ add(`<div class="full" style="border:26px solid #fff;box-shadow:inset 0 0 0 12px #111"></div>`);
+    add(`<div class="a" data-a="pop" data-t=".05" style="top:90px;right:70px;left:200px;min-height:230px;padding:36px 44px;background:#fff;border:9px solid #111;border-radius:60px;transform-origin:70% 100%"><div id="cb" style="font:400 76px/1.15 'Suez One';color:#111;text-align:center"></div><div style="position:absolute;bottom:-70px;right:300px;width:90px;height:80px;background:#fff;border-right:9px solid #111;border-bottom:9px solid #111;transform:skewX(-28deg)"></div></div>`);
+    this.cb=document.getElementById("cb");
+    const kw=W.find(x=>isKey(x.w)); const kt=kw?kw.s:1.2;
+    add(`<div class="a" data-a="spin" data-t="${kt}" data-d=".4" style="top:760px;right:30px;width:330px;height:330px;background:#e63946;clip-path:polygon(50% 0,61% 33%,98% 22%,72% 50%,100% 78%,62% 68%,50% 100%,38% 68%,0 78%,28% 50%,2% 22%,39% 33%);display:grid;place-items:center"><span style="font:400 70px/1 'Suez One';color:#fff;-webkit-text-stroke:3px #111">${KEY}!</span></div>`); },
+  render(t){ const k=chunkAt(t); this.cb.textContent=k<0?"…":CH[k].ids.map(i=>W[i].w).join(" "); }
+};
+
+/* 59 שער מגזין: כותרת ענקית מאחורי הראש, שורות שער, ברקוד */
+S.magazine = {
+  back(){ add(`<div class="full" style="background:linear-gradient(#f6cfd0,#efb9bd)"></div>`);
+    add(`<div class="a" data-a="down" data-t=".05" data-d=".55" style="top:40px;width:100%;text-align:center;font:900 300px/1 'Frank Ruhl Libre';color:#b3122e;letter-spacing:-6px">${TITLE}</div>`); },
+  front(){ add(`<div class="a" data-a="left" data-t=".3" style="top:420px;left:60px;width:300px;font:900 64px/1.05 'Frank Ruhl Libre';color:#111">${(D.line||"").split(" ").slice(0,4).join(" ")}</div>`);
+    add(`<div class="a" data-a="right" data-t=".45" style="top:560px;right:56px;width:250px;font:500 34px/1.3 Rubik;color:#111;border-top:6px solid #b3122e;padding-top:14px">גיליון מיוחד<br><b style="font-size:46px">עריכה בלי עורך</b></div>`);
+    add(`<div class="a" data-a="fade" data-t=".6" style="bottom:90px;left:70px;width:200px;height:110px;background:repeating-linear-gradient(90deg,#111 0 4px,#fff 4px 7px,#111 7px 9px,#fff 9px 14px);border:10px solid #fff"></div>`);
+    add(`<div class="a" data-a="fade" data-t=".6" style="bottom:95px;right:70px;font:700 34px/1.3 Rubik;color:#111">נובמבר 2026 · גיליון 01</div>`);
+    this.cap=capInit("mg","bottom:250px;font:900 92px/1.1 'Frank Ruhl Libre';color:#fff;text-shadow:0 6px 18px rgba(0,0,0,.45)","up");
+    add(`<style>.cap.mg .k{color:#ffd7dd}</style>`); },
+  render(t){ capRender(this.cap,t); }
+};
+
+/* 60 Y2K כרום: שמיים פסטל, בועות מבריקות, נצנוצים, טקסט כרום שנופל וקופץ */
+S.y2k = {
+  back(){ add(`<div class="full" style="background:linear-gradient(160deg,#9ec5ff,#e8b5ff 55%,#ffc8e8)"></div>`);
+    for(let i=0;i<9;i++){ const d=90+hash(i)*170; add(`<div class="a" data-a="pop" data-t="${.05*i}" data-l="bob" style="left:${hash(i+4)*960}px;top:${hash(i+8)*1300}px;width:${d}px;height:${d}px;border-radius:50%;background:radial-gradient(circle at 32% 28%,#fff 0 12%,rgba(255,255,255,.35) 22%,rgba(170,200,255,.25) 60%,rgba(255,255,255,.55) 100%)"></div>`); }
+    for(let i=0;i<7;i++) add(`<div class="a" data-a="spin" data-t="${.3+.08*i}" data-l="pulse" style="left:${hash(i+21)*1000}px;top:${hash(i+31)*700}px;width:70px;height:70px;background:#fff;clip-path:polygon(50% 0,60% 40%,100% 50%,60% 60%,50% 100%,40% 60%,0 50%,40% 40%)"></div>`); },
+  front(){ add(`<div class="a" data-a="drop" data-t=".1" data-d=".9" style="top:110px;width:100%;text-align:center;font:400 190px/1 'Rubik Bubbles';background:linear-gradient(180deg,#fff 0%,#c9d6e8 38%,#6b7a90 50%,#e9f0f8 62%,#9aa8bd 100%);-webkit-background-clip:text;color:transparent;-webkit-text-stroke:4px #4a2ea0;filter:drop-shadow(0 6px 0 #5b3fb0) drop-shadow(0 10px 20px rgba(80,40,160,.5))">${TITLE}</div>`);
+    this.cap=capInit("yk","bottom:230px;font:900 84px/1.15 Rubik;color:#3b1d8f","drop");
+    add(`<style>.cap.yk>span{background:linear-gradient(#fff,#e6dcff);border:5px solid #fff;border-radius:80px;padding:14px 46px 22px;box-shadow:0 12px 30px rgba(90,50,180,.35)}.cap.yk .k{color:#ff3fa4}</style>`); },
+  render(t){ capRender(this.cap,t); }
+};
+
+/* 61 פולארויד: הצילום האמיתי בתוך מסגרת פולארויד שמתפתחת, נייר דבק, כיתוב בכתב יד */
+S.polaroid = {
+  back(){},
+  front(){ add(`<div class="a" data-a="develop" data-t="0" data-d="1.3" style="left:70px;right:70px;top:150px;bottom:420px;background:linear-gradient(#e9e4d8,#d9d2c2)"></div>`);
+    add(`<div class="full" style="border-style:solid;border-color:#fbfaf6;border-width:150px 70px 420px 70px;box-shadow:inset 0 0 0 2px rgba(0,0,0,.08)"></div>`);
+    add(`<div class="a" data-a="drop" data-t=".3" data-base="rotate(-6deg)" style="top:95px;right:160px;width:260px;height:80px;background:rgba(244,232,170,.85)"></div>`);
+    add(`<div class="a" data-a="drop" data-t=".42" data-base="rotate(5deg)" style="top:98px;left:170px;width:230px;height:80px;background:rgba(244,232,170,.85)"></div>`);
+    this.cap=add(`<div class="a" style="left:110px;right:110px;bottom:150px;text-align:center;font:700 120px/1 'Amatic SC';color:#24324a"></div>`);
+    add(`<div class="a ltr" data-a="fade" data-t="1.2" style="bottom:80px;left:110px;font:700 50px/1 'Amatic SC';color:#7a6f5c">${D.date||""}</div>`); },
+  render(t){ const k=chunkAt(t); if(k<0){this.cap.textContent="";return;} const c=CH[k]; const txt=c.ids.map(i=>W[i].w).join(" ");
+    const p=clamp((t-c.s)/Math.max(.25,c.e-c.s),0,1); this.cap.textContent=txt.slice(0,Math.ceil(txt.length*p)); }
+};
+
+/* 62 מחברת: דף שורות עם קו שוליים, נורה מצוירת, חץ, קו תחתון שמשרבט את עצמו */
+S.notebook = {
+  back(){ add(`<div class="full" style="background:linear-gradient(transparent 0 63px,#9cc3e8 63px 66px) 0 30px/100% 66px,#fdfbf2"></div>`);
+    add(`<div class="a" style="top:0;bottom:0;right:120px;width:4px;background:#ef8a8a"></div>`);
+    add(`<svg class="a" data-a="draw" data-t=".15" data-d=".9" width="420" height="200" style="top:140px;right:170px" viewBox="0 0 420 200"><path d="M10 120 C 80 20, 160 20, 200 100 S 330 180, 410 60" stroke="#2b59c3" stroke-width="9" fill="none" stroke-linecap="round"/></svg>`); },
+  front(){ const kw=W.find(x=>isKey(x.w)); const kt=kw?kw.s:1;
+    add(`<svg class="a" data-a="draw" data-t="${kt-.1}" data-d=".7" width="260" height="330" style="top:470px;right:60px" viewBox="0 0 260 330"><path d="M130 30 C 50 30, 30 120, 80 170 C 100 190, 100 210, 100 230 L 160 230 C 160 210, 160 190, 180 170 C 230 120, 210 30, 130 30 Z M 105 255 L 155 255 M 112 280 L 148 280 M130 0 L130 12 M40 40 L52 50 M220 40 L208 50" stroke="#1d1d1f" stroke-width="9" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`);
+    add(`<div class="a" data-a="pop" data-t="${kt+.5}" style="top:520px;right:115px;width:150px;height:150px;border-radius:50%;background:radial-gradient(circle,rgba(255,214,10,.75),transparent 70%)"></div>`);
+    add(`<svg class="a" data-a="draw" data-t=".5" data-d=".6" width="300" height="220" style="top:330px;left:40px" viewBox="0 0 300 220"><path d="M20 30 C 120 20, 230 60, 250 180 M250 180 L 215 140 M250 180 L 280 135" stroke="#e5383b" stroke-width="9" fill="none" stroke-linecap="round"/></svg>`);
+    this.cap=capInit("nb","bottom:200px;font:700 120px/1 'Amatic SC';color:#1d1d1f","up");
+    add(`<style>.cap.nb>span{background:#fdfbf2;padding:6px 36px 14px;box-shadow:0 8px 18px rgba(0,0,0,.35);transform-origin:center}.cap.nb .k{color:#2b59c3;background:linear-gradient(transparent 70%,rgba(255,214,10,.8) 70%)}</style>`); },
+  render(t){ capRender(this.cap,t); }
+};
+
+/* 63 עיתון: נייר עיתון, שם העיתון, טורים, האדם כגזיר, כותרת ענק שננחתת כחותמת */
+S.newspaper = {
+  back(){ add(`<div class="full" style="background:#ece6d6"></div>`);
+    add(`<div class="a" data-a="fade" data-t="0" style="top:50px;width:100%;text-align:center;font:900 150px/1 'Frank Ruhl Libre';color:#141414">הדוגרי</div>`);
+    add(`<div class="a" style="top:220px;left:60px;right:60px;border-top:6px solid #141414;border-bottom:2px solid #141414;padding:8px 0;font:700 30px/1 'David Libre';color:#141414;display:flex;justify-content:space-between"><span>${D.date||"מהדורה מיוחדת"}</span><span>מהדורת ערב</span></div>`);
+    const col=(x)=>Array.from({length:22},(_,i)=>`<div style="height:12px;margin:14px 0;background:#9d978a;width:${82+hash(i+x)*18}%"></div>`).join("");
+    add(`<div class="a" style="top:300px;right:60px;width:250px">${col(1)}</div>`); add(`<div class="a" style="top:300px;left:60px;width:250px">${col(9)}</div>`); },
+  front(){ add(`<div class="a" data-a="stamp" data-t=".15" data-d=".22" style="left:40px;right:40px;bottom:300px;background:#141414;color:#fff;text-align:center;padding:26px 20px 34px;font:900 96px/1.1 'Frank Ruhl Libre'">${D.headline||TITLE}</div>`);
+    add(`<div class="a" data-a="stamp" data-t=".7" data-d=".2" data-base="rotate(-12deg)" style="top:660px;right:70px;border:8px solid #c1121f;color:#c1121f;padding:10px 22px;font:900 54px/1 'David Libre'">בלעדי</div>`);
+    this.cap=capInit("np","bottom:150px;font:700 64px/1.1 'David Libre';color:#141414","fade");
+    add(`<style>.cap.np>span{background:#ece6d6;padding:10px 30px 16px}</style>`); },
+  render(t){ capRender(this.cap,t); }
+};
+
+/* 64 משחק 8-bit: שמיים של משחק, עננים ולבנים מפיקסלים, לבבות, ניקוד שעולה, מטבעות, תיבת דיאלוג */
+S.pixel = {
+  back(){ add(`<div class="full" style="background:#5c94fc"></div>`);
+    const cloud=(x,y)=>`<div class="a" data-l="bob" style="left:${x}px;top:${y}px;width:20px;height:20px;background:transparent;box-shadow:${[[1,0],[2,0],[3,0],[0,1],[1,1],[2,1],[3,1],[4,1],[5,1],[1,2],[2,2],[3,2],[4,2]].map(([a,b])=>`${a*40}px ${b*40}px 0 20px #fff`).join(",")}"></div>`;
+    add(cloud(80,200)+cloud(700,330)+cloud(420,120));
+    add(`<div class="a" style="left:0;right:0;bottom:0;height:300px;background:linear-gradient(#c84c0c 0 8px,transparent 8px) 0 0/100% 75px,linear-gradient(90deg,#000 0 6px,transparent 6px) 0 0/150px 75px,#e09c3c"></div>`);
+    add(`<div class="a" data-a="drop" data-t=".2" style="top:520px;right:90px;width:150px;height:150px;background:#f8b800;border:8px solid #000;display:grid;place-items:center;font:400 100px/1 'Rubik Pixels';color:#000">?</div>`); },
+  front(){ add(`<div class="a" style="top:70px;right:70px;font:400 56px/1 'Rubik Pixels';color:#fff;text-shadow:5px 5px 0 #000">חיים <span style="color:#ff3b3b">♥♥♥</span></div>`);
+    this.sc=add(`<div class="a ltr" style="top:70px;left:70px;font:400 56px/1 'Rubik Pixels';color:#fff;text-shadow:5px 5px 0 #000"></div>`);
+    W.forEach((x,i)=>add(`<div class="a" data-a="up" data-t="${x.s}" data-d=".35" style="top:${520+((i%4)*80)}px;right:${60+(i%3)*90}px;font:400 46px/1 'Rubik Pixels';color:#f8d800;text-shadow:4px 4px 0 #000;opacity:0">+100</div>`));
+    this.box=add(`<div class="a" style="left:50px;right:50px;bottom:110px;min-height:260px;background:#000;border:10px solid #fff;box-shadow:0 0 0 8px #000;padding:34px 40px;font:400 64px/1.35 'Rubik Pixels';color:#fff"></div>`); },
+  render(t){ const n=W.filter(x=>t>=x.s).length; this.sc.textContent="SCORE "+String(n*100).padStart(6,"0");
+    root.querySelectorAll('[data-a="up"]').forEach(el=>{ const st=+el.dataset.t; if(t>st+.7) el.style.opacity=0; });
+    const k=chunkAt(t); if(k<0){this.box.textContent="";return;} const c=CH[k], txt=c.ids.map(i=>W[i].w).join(" "), p=clamp((t-c.s)/.35,0,1);
+    this.box.textContent=txt.slice(0,Math.ceil(txt.length*p))+(Math.floor(t*3)%2?" ▼":""); }
+};
+
+/* 65 חלון רטרו: הצילום בתוך חלון של מערכת הפעלה ישנה, שורת משימות, חלון קופץ, סמן עכבר שלוחץ */
+S.win95 = {
+  back(){},
+  front(){ add(`<div class="a" style="top:0;left:0;right:0;height:96px;background:linear-gradient(90deg,#0a1f7a,#1084d0);display:flex;align-items:center;justify-content:space-between;padding:0 26px;border:6px solid #c0c0c0"><span style="font:700 46px/1 Rubik;color:#fff">דוגרי.exe</span><span class="ltr" style="display:flex;gap:10px">${["_","□","✕"].map(s=>`<b style="width:62px;height:56px;background:#c0c0c0;border:4px outset #fff;display:grid;place-items:center;font:900 34px/1 Rubik;color:#000">${s}</b>`).join("")}</span></div>`);
+    add(`<div class="a" style="left:0;right:0;bottom:0;height:110px;background:#c0c0c0;border-top:6px solid #fff;display:flex;align-items:center;justify-content:space-between;padding:0 20px"><b style="padding:10px 28px;border:5px outset #fff;font:900 44px/1 Rubik;color:#000">התחל</b><span class="ltr" style="padding:10px 24px;border:4px inset #fff;font:500 40px/1 Rubik;color:#000">21:15</span></div>`);
+    const kt=(W[3]||{s:.8}).s;
+    add(`<div class="a" data-a="pop" data-t="${kt}" data-d=".3" style="left:110px;right:110px;top:1330px;background:#c0c0c0;border:6px outset #fff;box-shadow:12px 12px 0 rgba(0,0,0,.4)"><div style="background:linear-gradient(90deg,#0a1f7a,#1084d0);padding:12px 20px;font:700 40px/1 Rubik;color:#fff">הודעה</div><div style="padding:30px 34px;display:flex;gap:26px;align-items:center"><div style="width:90px;height:90px;border-radius:50%;background:#1084d0;color:#fff;display:grid;place-items:center;font:900 64px/1 'Suez One'">i</div><div id="wt" style="font:700 54px/1.25 Rubik;color:#000"></div></div><div style="display:flex;justify-content:center;gap:30px;padding:0 0 30px"><b id="wy" style="padding:14px 56px;border:5px outset #fff;font:700 44px/1 Rubik;color:#000">כן</b><b style="padding:14px 56px;border:5px outset #fff;font:700 44px/1 Rubik;color:#000">לא</b></div></div>`);
+    this.wt=document.getElementById("wt"); this.wy=document.getElementById("wy"); this.kt=kt;
+    this.cur=add(`<svg class="a" width="70" height="100" viewBox="0 0 14 20" style="left:0;top:0"><path d="M0 0 L0 16 L4 12 L7 19 L9 18 L6 11 L11 11 Z" fill="#fff" stroke="#000" stroke-width="1"/></svg>`); },
+  render(t){ const k=chunkAt(t); this.wt.textContent=k<0?"":CH[k].ids.map(i=>W[i].w).join(" ");
+    const p=E.io(clamp((t-this.kt-.6)/1.2,0,1)); this.cur.style.left=lerp(900,560,p)+"px"; this.cur.style.top=lerp(1760,1680,p)+"px";
+    const click=t>this.kt+1.9&&t<this.kt+2.15; this.wy.style.borderStyle=click?"inset":"outset"; }
+};
+
+/* 66 צ'אט תגובות: הצילום האמיתי, תגובות שעולות מלמטה כמו פיד, לבבות שקופצים */
+S.chat = {
+  back(){},
+  front(){ add(`<div class="a" style="left:0;right:0;bottom:0;height:900px;background:linear-gradient(transparent,rgba(0,0,0,.78))"></div>`);
+    this.feed=add(`<div class="a" style="left:50px;right:50px;bottom:120px;display:flex;flex-direction:column;gap:22px"></div>`);
+    const extra=(D.replies||[["נועה","עורך 🙋‍♀️"],["דור","עורך!!"],["מאיה","עורך, תודה"]]);
+    this.items=CH.map(c=>({s:c.s,name:NAME||"אני",me:1,txt:c.ids.map(i=>W[i].w).join(" ")}));
+    const last=CH.length?CH[CH.length-1].e:2; extra.forEach((r,i)=>this.items.push({s:last-.9+i*.3,name:r[0],txt:r[1]}));
+    this.items.sort((a,b)=>a.s-b.s); },
+  render(t){ const vis=this.items.filter(x=>t>=x.s).slice(-5);
+    this.feed.innerHTML=vis.map((x,i)=>{ const p=clamp((t-x.s)/.3,0,1);
+      return `<div style="display:flex;gap:20px;align-items:flex-start;opacity:${p};transform:translateY(${(1-E.o(p))*60}px)"><div style="flex:none;width:86px;height:86px;border-radius:50%;background:${x.me?"#ff6b2c":["#6a4bff","#0e8a47","#1f6fe0"][i%3]};display:grid;place-items:center;font:900 40px/1 Rubik;color:#fff">${x.name[0]}</div><div><div style="font:700 36px/1.2 Rubik;color:#fff">${x.name}${x.me?' <span style="font-size:28px;color:#9fd0ff">✔ יוצר</span>':''}</div><div style="font:500 52px/1.25 Rubik;color:#fff">${x.txt}</div></div><div style="margin-right:auto;font:400 44px/1 Rubik;color:${x.me?"#ff3b5c":"#fff"}">${x.me?"♥":"♡"}</div></div>`; }).join(""); }
+};
+
+/* 67 מבזק חדשות: הצילום האמיתי, "שידור חי" מהבהב, פס כותרת אדום, טיקר רץ */
+S.breaking = {
+  back(){},
+  front(){ add(`<div class="a" data-a="right" data-t=".05" style="top:80px;right:60px;display:flex;gap:16px;align-items:center"><b data-l="blink" style="padding:10px 22px;background:#d90429;color:#fff;font:900 44px/1 Rubik">● שידור חי</b><b class="ltr" style="padding:10px 18px;background:rgba(0,0,0,.6);color:#fff;font:700 40px/1 Rubik">21:15</b></div>`);
+    add(`<div class="a" data-a="left" data-t=".1" style="top:80px;left:60px;padding:10px 20px;background:rgba(255,255,255,.92);font:900 40px/1 Rubik;color:#0b1d3a">${D.channel||(NAME?"ערוץ "+NAME.split(" ")[0]:"ערוץ 1")}</div>`);
+    add(`<div class="a" data-a="right" data-t=".2" style="left:40px;right:40px;bottom:250px;display:flex"><b style="flex:none;padding:22px 30px;background:#d90429;color:#fff;font:900 62px/1 Rubik">מבזק</b><div style="flex:1;background:#fff;padding:20px 30px;overflow:hidden"><div id="bk" style="font:900 62px/1.05 Rubik;color:#0b1d3a;white-space:nowrap"></div></div></div>`);
+    this.bk=document.getElementById("bk");
+    add(`<div class="a" style="left:0;right:0;bottom:150px;height:86px;background:#0b1d3a;overflow:hidden"><div data-l="scroll" data-sp="260" data-wrap="1500" class="a" style="top:16px;right:0;white-space:nowrap;font:700 50px/1 Rubik;color:#fff">${((D.ticker||"העורך: סקיל חינמי שעורך רילס בעברית · כתבו עורך בתגובות")+" · ").repeat(4)}</div></div>`); },
+  render(t){ const k=chunkAt(t); this.bk.textContent=k<0?"":CH[k].ids.map(i=>W[i].w).join(" "); }
+};
+
+/* 68 סקראפבוק: לוח שעם, נייר דבק, כוכבים, מדבקות שקופצות על כל מילה */
+S.scrapbook = {
+  back(){ add(`<div class="full" style="background:#b98b57"></div>`);
+    add(`<div class="full" style="opacity:.5;background:radial-gradient(circle,#8a5f33 1.5px,transparent 2px) 0 0/22px 22px,radial-gradient(circle,#d8b07c 1.5px,transparent 2px) 11px 11px/26px 26px"></div>`);
+    [["#ffe66d",-7,140,90],["#a0e7e5",6,700,180],["#ffaebc",-4,80,980]].forEach(([c,r,x,y],i)=>add(`<div class="a" data-a="drop" data-t="${.05+i*.1}" data-base="rotate(${r}deg)" style="left:${x}px;top:${y}px;width:280px;height:200px;background:${c};box-shadow:0 10px 20px rgba(0,0,0,.3)"></div>`)); },
+  front(){ const cols=["#ffd60a","#ff70a6","#70d6ff","#9ef01a"];
+    W.forEach((x,i)=>{ if(i>6) return; const big=isKey(x.w);
+      add(`<div class="a" data-a="pop" data-t="${x.s}" data-d=".3" data-base="rotate(${((hash(i+2)-.5)*24).toFixed(1)}deg)" style="top:${[470,640,800,980,560,730,900][i]}px;${i%2?"left:40px":"right:40px"};padding:${big?"30px 46px":"18px 32px"};background:${cols[i%4]};border:7px solid #fff;border-radius:${i%3==0?"50%":"26px"};box-shadow:0 8px 16px rgba(0,0,0,.3);font:900 ${big?78:58}px/1 Rubik;color:#1b1b1b">${x.w}</div>`); });
+    add(`<div class="a" data-a="spin" data-t=".2" style="top:120px;left:420px;width:150px;height:150px;background:#ffd60a;clip-path:polygon(50% 0,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%)"></div>`);
+    add(`<div class="a" data-a="drop" data-t=".1" data-base="rotate(4deg)" style="left:150px;right:150px;bottom:150px;padding:30px;background:#fffef7;text-align:center;font:700 96px/1.05 'Amatic SC';color:#1b1b1b;box-shadow:0 10px 18px rgba(0,0,0,.3)">${D.line||TITLE}</div>`); },
+  render(t){}
+};
+
+/* 69 מינימל שוויצרי: גריד, בלוק אדום, טיפוגרפיה שחורה חדה, הכול נכנס בהחלקה מדויקת */
+S.swiss = {
+  back(){ add(`<div class="full" style="background:#f1eee6"></div>`);
+    add(`<div class="a" data-a="wipeD" data-t="0" data-d=".5" style="top:0;right:0;width:420px;height:1000px;background:#e10600"></div>`);
+    [270,540,810].forEach((x,i)=>add(`<div class="a" data-a="wipeD" data-t="${.1+i*.06}" style="top:0;bottom:0;left:${x}px;width:2px;background:rgba(0,0,0,.18)"></div>`));
+    add(`<div class="a" data-a="left" data-t=".2" style="top:110px;left:60px;font:900 230px/.9 Rubik;color:#111;letter-spacing:-8px">${TITLE}</div>`); },
+  front(){ add(`<div class="a" data-a="right" data-t=".35" style="top:1080px;right:60px;width:300px;border-top:10px solid #111;padding-top:16px;font:700 38px/1.25 Rubik;color:#111">${NAME||"העורך"}<br><span style="font-weight:400">${D.date||"2026"}</span></div>`);
+    this.cap=capInit("sw","bottom:180px;left:60px;right:60px;text-align:right;font:900 104px/1 Rubik;color:#111;letter-spacing:-2px","right");
+    add(`<style>.cap.sw>span{background:#f1eee6;padding:16px 28px 26px}.cap.sw .k{color:#e10600}</style>`); },
+  render(t){ capRender(this.cap,t); }
+};
+
+/* 70 פוסטר סרט: אור דרמטי, כותרת ענקית, בלוק קרדיטים, דחיפה איטית פנימה */
+S.poster = {
+  back(){ add(`<div class="full" style="background:radial-gradient(ellipse at 50% 30%,#7d0f14,#2a0306 55%,#070102)"></div>`);
+    add(`<div class="a" data-a="zoom" data-t=".05" data-d="1.2" style="top:90px;width:100%;text-align:center;font:400 220px/1 'Suez One';color:#f5e6c8;letter-spacing:6px;text-shadow:0 0 40px rgba(255,120,80,.35)">${TITLE}</div>`); },
+  front(){ add(`<div class="a" data-a="fade" data-t=".5" data-d=".8" style="top:360px;width:100%;text-align:center;font:500 40px/1 Rubik;color:#e8c9a0;letter-spacing:14px">סרטון אחד. טלפון אחד.</div>`);
+    add(`<div class="a" data-a="up" data-t=".8" style="left:60px;right:60px;bottom:110px;text-align:center;font:500 30px/1.45 'Secular One';color:#d9c6a8;letter-spacing:1px;border-top:2px solid rgba(217,198,168,.4);padding-top:18px">${NAME?"בימוי "+NAME+" · ":""}עריכה העורך · צילום טלפון<br><b style="font-size:46px;color:#f5e6c8;letter-spacing:8px">בקרוב בפיד שלך</b></div>`);
+    this.cap=capInit("ps","bottom:330px;font:400 86px/1.15 'Suez One';color:#f5e6c8;text-shadow:0 6px 24px rgba(0,0,0,.8)","zoom");
+    add(`<style>.cap.ps .k{color:#ff8a5b}</style>`); },
+  render(t){ capRender(this.cap,t); }
+};
+
+/* 71 זכוכית עתידנית: אורורה זזה מאחור, כרטיסי זכוכית שצפים עם השלבים */
+S.glass = {
+  back(){ add(`<div class="full" style="background:#0d0b1f"></div>`);
+    this.bl=[["#6a4bff",200,300],["#00d1c1",800,700],["#ff6b2c",300,1300]].map(([c,x,y])=>add(`<div class="a" style="left:${x-350}px;top:${y-350}px;width:700px;height:700px;border-radius:50%;background:${c};filter:blur(120px);opacity:.75"></div>`)); },
+  front(){ const st=(D.cards||["רעיון","תוכנית","ביצוע"]);
+    st.forEach((s,i)=>add(`<div class="a" data-a="right" data-t="${.2+i*.25}" data-l="bob" style="top:${520+i*190}px;right:50px;width:310px;padding:24px 28px;border-radius:30px;background:rgba(255,255,255,.14);border:2px solid rgba(255,255,255,.4);box-shadow:0 20px 40px rgba(0,0,0,.25);font:700 46px/1 Rubik;color:#fff;display:flex;gap:18px;align-items:center"><span style="width:50px;height:50px;border-radius:50%;background:rgba(255,255,255,.25);display:grid;place-items:center;font-size:30px">${i+1}</span>${s}</div>`));
+    this.cap=capInit("gl","bottom:220px;font:700 80px/1.15 Rubik;color:#fff","up");
+    add(`<style>.cap.gl>span{background:rgba(255,255,255,.14);border:2px solid rgba(255,255,255,.45);border-radius:44px;padding:18px 44px 26px}.cap.gl .k{color:#9ff5ec}</style>`); },
+  render(t){ if(this.bl) this.bl.forEach((b,i)=>b.style.transform=`translate(${Math.sin(t*.9+i*2)*90}px,${Math.cos(t*.7+i)*90}px)`); capRender(this.cap,t); }
+};
+
+/* 72 גרפיטי: קיר לבנים, תג ספריי ענק שמתרסס פנימה מאחורי הראש, טפטופים */
+S.graffiti = {
+  back(){ add(`<div class="full" style="background:#7a3b2e"></div>`);
+    add(`<div class="full" style="opacity:.75;background:url('data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%27340%27 height=%27160%27%3E%3Cg fill=%27none%27 stroke=%27%23c9b9a6%27 stroke-width=%276%27%3E%3Cpath d=%27M0 3H340M0 83H340M3 0V80M173 0V80M88 80V160M258 80V160%27/%3E%3C/g%3E%3C/svg%3E') 0 0/340px 160px"></div>`);
+    add(`<div class="a" data-a="spray" data-t=".1" data-d=".9" data-base="rotate(-8deg)" style="top:120px;left:20px;right:20px;text-align:center;font:400 260px/1 'Rubik Wet Paint';color:#ff2e93;text-shadow:10px 10px 0 #111">${TITLE}</div>`);
+    add(`<div class="a" data-a="spray" data-t=".6" data-d=".6" style="top:700px;right:40px;font:400 150px/1 'Rubik Spray Paint';color:#c6ff00">!!!</div>`); },
+  front(){ this.cap=capInit("gf","bottom:230px;font:400 104px/1.1 'Rubik Spray Paint';color:#fff;text-shadow:6px 6px 0 #ff2e93","spray");
+    add(`<style>.cap.gf .k{color:#c6ff00;text-shadow:6px 6px 0 #111}</style>`); },
+  render(t){ capRender(this.cap,t); }
+};
+
+/* 73 שרטוט: נייר שרטוט כחול, קווי מידה שמשרטטים את עצמם, הערות בכתב יד, חותמת כותרת */
+S.blueprint = {
+  back(){ add(`<div class="full" style="background:linear-gradient(rgba(255,255,255,.12) 2px,transparent 2px) 0 0/100% 120px,linear-gradient(90deg,rgba(255,255,255,.12) 2px,transparent 2px) 0 0/120px 100%,linear-gradient(rgba(255,255,255,.06) 1px,transparent 1px) 0 0/100% 30px,linear-gradient(90deg,rgba(255,255,255,.06) 1px,transparent 1px) 0 0/30px 100%,#0b4f8a"></div>`);
+    add(`<div class="a" data-a="up" data-t=".5" style="bottom:60px;left:60px;width:330px;border:4px solid #e8f2ff;font:500 28px/1.6 Rubik;color:#e8f2ff"><div style="border-bottom:3px solid #e8f2ff;padding:8px 14px;font-weight:900;font-size:36px">תוכנית: ${TITLE}</div><div style="padding:6px 14px">${NAME?"שרטט: "+NAME.split(" ")[0]+" · ":""}גיליון 1/1</div></div>`); },
+  front(){ add(`<svg class="a" data-a="draw" data-t=".2" data-d=".8" width="1080" height="1920" style="left:0;top:0" viewBox="0 0 1080 1920"><g stroke="#e8f2ff" stroke-width="5" fill="none" stroke-linecap="round">
+      <path d="M90 300 L90 1300 M70 300 L110 300 M70 1300 L110 1300"/><path d="M150 1380 L740 1380 M150 1360 L150 1400 M740 1360 L740 1400"/>
+      <circle cx="880" cy="640" r="120" stroke-dasharray="14 12"/><path d="M790 720 L700 820"/></g></svg>`);
+    add(`<div class="a" data-a="fade" data-t=".9" style="top:770px;left:20px;font:700 60px/1 'Amatic SC';color:#e8f2ff;transform:rotate(-90deg)">גובה: מספיק</div>`);
+    add(`<div class="a" data-a="fade" data-t="1.0" style="top:570px;right:70px;width:220px;text-align:center;font:700 70px/1 'Amatic SC';color:#ffd166">${KEY}</div>`);
+    this.cap=capInit("bp","top:130px;font:700 78px/1.15 Rubik;color:#e8f2ff;letter-spacing:3px","wipe");
+    add(`<style>.cap.bp .k{color:#ffd166}</style>`); },
+  render(t){ capRender(this.cap,t); }
+};
+
+/* 74 סינת'ווייב שנות ה-80: שמש פסים, רשת ורודה שרצה לעבר הצופה, הרים, כותרת כרום */
+S.synth = {
+  back(){ add(`<div class="full" style="background:linear-gradient(#1a0b3b 0%,#5b1a7a 45%,#ff3c8e 72%,#ff9e5e 100%)"></div>`);
+    add(`<div class="a" data-a="up" data-t="0" data-d=".9" style="left:240px;top:430px;width:600px;height:600px;border-radius:50%;background:linear-gradient(#ffe259,#ff7a59 70%);-webkit-mask:linear-gradient(#000 0 52%,transparent 52% 56%,#000 56% 64%,transparent 64% 69%,#000 69% 76%,transparent 76% 82%,#000 82% 87%,transparent 87%)"></div>`);
+    add(`<div class="a" style="left:-200px;right:-200px;top:960px;height:200px;background:#2a0b45;clip-path:polygon(0 100%,8% 40%,18% 75%,30% 20%,42% 70%,52% 35%,63% 80%,75% 25%,86% 65%,100% 30%,100% 100%)"></div>`);
+    this.grid=add(`<div class="a" style="left:-600px;right:-600px;top:1130px;height:1100px;transform-origin:top;transform:perspective(500px) rotateX(70deg);background:linear-gradient(#ff3cf0 3px,transparent 3px) 0 0/100% 100px,linear-gradient(90deg,#ff3cf0 3px,transparent 3px) 0 0/110px 100%,#1a0730"></div>`); },
+  front(){ add(`<div class="a" data-a="zoom" data-t=".1" data-d=".7" style="top:120px;width:100%;text-align:center;font:400 170px/1 'Rubik 80s Fade';color:#fff;text-shadow:0 0 18px #ff3cf0,0 0 50px #ff3cf0">${TITLE}</div>`);
+    this.cap=capInit("sy","bottom:230px;font:900 88px/1.1 Rubik;color:#fff;text-shadow:0 0 16px #00f0ff,0 0 40px #00f0ff","up");
+    add(`<style>.cap.sy .k{color:#ffe259;text-shadow:0 0 18px #ff7a59}</style>`); },
+  render(t){ if(this.grid) this.grid.style.backgroundPosition=`0 ${(t*260)%100}px,0 0,0 0`; capRender(this.cap,t); }
+};
+
+/* ---------- הרצה ---------- */
+const st = S[STYLE];
+if(!st) document.body.innerHTML = "<h1 style='color:red;font-size:80px'>unknown style "+STYLE+"</h1>";
+else if(LAYER==="back") st.back(); else st.front();
+window.render = function(t){ if(st){ anim(t); if(LAYER!=="back" || ["glass","synth"].includes(STYLE)) st.render.call(st,t); } };
+window.STYLES = Object.keys(S);
+</script>
+</body>
+</html>
